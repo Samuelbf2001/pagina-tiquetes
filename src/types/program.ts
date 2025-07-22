@@ -6,7 +6,7 @@ export interface Program {
   duration: number; // in weeks
   durationUnit: 'weeks' | 'months';
   hoursPerWeek: number;
-  type: 'language' | 'university' | 'internship' | 'volunteer' | 'professional';
+  type: 'language' | 'internship' | 'volunteer' | 'aupair';
   startDates: string[];
   requirements: string[];
   availableSpots: number;

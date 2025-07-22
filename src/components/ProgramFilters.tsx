@@ -34,18 +34,103 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const destinations = [...new Set(programs.map(p => p.country))];
+  // Destinos específicos para prácticas internacionales
+  const internshipDestinations = [
+    "Dubái",
+    "Qatar", 
+    "Tailandia",
+    "Maldivas",
+    "Emiratos Árabes Unidos",
+    "Bahréin",
+    "Vietnam",
+    "Hong Kong",
+    "Hawái",
+    "Alaska",
+    "Estados Unidos",
+    "España"
+  ];
+
+  // Categorización de destinos para prácticas
+  const asianDestinations = ["Qatar", "Tailandia", "Maldivas", "Emiratos Árabes Unidos", "Bahréin", "Vietnam", "Hong Kong", "Dubái"];
+  const usDestinations = ["Estados Unidos", "Hawái", "Alaska"];
+  const spainDestinations = ["España"];
+
+  // Obtener destinos dinámicamente basados en el tipo seleccionado
+  const getAvailableDestinations = () => {
+    if (filters.type === "all") {
+      return [...new Set(programs.map(p => p.country))];
+    }
+    if (filters.type === "internship") {
+      return internshipDestinations;
+    }
+    return [...new Set(programs.filter(p => p.type === filters.type).map(p => p.country))];
+  };
+
+  // Obtener opciones de duración dinámicamente para prácticas internacionales
+  const getDurationOptions = () => {
+    if (filters.type === "internship" && filters.destination !== "all") {
+      if (usDestinations.includes(filters.destination)) {
+        return [
+          { value: "all", label: "Cualquier duración" },
+          { value: "6-12-months", label: "6-12 meses" }
+        ];
+      } else if (asianDestinations.includes(filters.destination)) {
+        return [
+          { value: "all", label: "Cualquier duración" },
+          { value: "6-18-months", label: "6-18 meses" }
+        ];
+      } else if (spainDestinations.includes(filters.destination)) {
+        return [
+          { value: "all", label: "Cualquier duración" },
+          { value: "3-months", label: "3 meses" },
+          { value: "6-12-months", label: "6-12 meses" }
+        ];
+      }
+    }
+    
+    // Opciones por defecto para otros tipos
+    return [
+      { value: "all", label: "Cualquier duración" },
+      { value: "short", label: "Corta (1-8 semanas)" },
+      { value: "medium", label: "Media (9-16 semanas)" },
+      { value: "long", label: "Larga (17+ semanas)" }
+    ];
+  };
+
+  const destinations = getAvailableDestinations();
   const programTypes = [...new Set(programs.map(p => p.type))];
+  const durationOptions = getDurationOptions();
 
   const typeLabels = {
-    language: "Idiomas",
-    university: "Universidad", 
-    internship: "Prácticas",
-    volunteer: "Voluntariado",
-    professional: "Profesional"
+    language: "Cursos de inglés",
+    volunteer: "Voluntariados",
+    internship: "Prácticas internacionales",
+    aupair: "AuPair"
   };
 
   const applyFilters = (newFilters: FilterState) => {
+    // Si cambió el tipo, verificar si el destino seleccionado sigue siendo válido
+    if (newFilters.type !== filters.type && newFilters.destination !== "all") {
+      let availableDestinationsForType;
+      
+      if (newFilters.type === "all") {
+        availableDestinationsForType = [...new Set(programs.map(p => p.country))];
+      } else if (newFilters.type === "internship") {
+        availableDestinationsForType = internshipDestinations;
+      } else {
+        availableDestinationsForType = [...new Set(programs.filter(p => p.type === newFilters.type).map(p => p.country))];
+      }
+      
+      if (!availableDestinationsForType.includes(newFilters.destination)) {
+        newFilters.destination = "all";
+      }
+    }
+
+    // Si cambió el destino para prácticas internacionales, resetear duración
+    if (newFilters.type === "internship" && newFilters.destination !== filters.destination) {
+      newFilters.duration = "all";
+    }
+    
     setFilters(newFilters);
     
     let filtered = programs.filter(program => {
@@ -54,9 +139,19 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
       if (program.priceUSD < newFilters.priceRange[0] || program.priceUSD > newFilters.priceRange[1]) return false;
       if (newFilters.duration !== "all") {
         const durationWeeks = program.durationUnit === 'weeks' ? program.duration : program.duration * 4;
+        const durationMonths = program.durationUnit === 'months' ? program.duration : program.duration / 4;
+        
+        // Filtros especiales para prácticas internacionales
+        if (newFilters.type === "internship") {
+          if (newFilters.duration === "3-months" && durationMonths !== 3) return false;
+          if (newFilters.duration === "6-12-months" && (durationMonths < 6 || durationMonths > 12)) return false;
+          if (newFilters.duration === "6-18-months" && (durationMonths < 6 || durationMonths > 18)) return false;
+        } else {
+          // Filtros por defecto para otros tipos
         if (newFilters.duration === "short" && durationWeeks > 8) return false;
         if (newFilters.duration === "medium" && (durationWeeks <= 8 || durationWeeks > 16)) return false;
         if (newFilters.duration === "long" && durationWeeks <= 16) return false;
+        }
       }
       if (newFilters.level !== "all" && program.level !== "all" && program.level !== newFilters.level) return false;
       if (newFilters.visaRequired !== "all") {
@@ -171,10 +266,11 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Cualquier duración</SelectItem>
-                  <SelectItem value="short">Corta (1-8 semanas)</SelectItem>
-                  <SelectItem value="medium">Media (9-16 semanas)</SelectItem>
-                  <SelectItem value="long">Larga (17+ semanas)</SelectItem>
+                  {durationOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

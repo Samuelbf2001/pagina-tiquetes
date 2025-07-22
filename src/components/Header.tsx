@@ -1,24 +1,59 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Globe, User, ShoppingCart } from "lucide-react";
+import { Search, Globe, User, ShoppingCart, Plane, GraduationCap } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 interface HeaderProps {
   cartItemsCount?: number;
 }
 
 export function Header({ cartItemsCount = 0 }: HeaderProps) {
+  const location = useLocation();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <div className="flex items-center space-x-2">
-          <Globe className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Student Travel Center
-            </h1>
-            <p className="text-xs text-muted-foreground">STC</p>
-          </div>
+        <Link to="/" className="flex items-center mr-2.5">
+          <img 
+            src="/logo-color.png" 
+            alt="Student Travel Center" 
+            className="h-12 w-auto"
+          />
+        </Link>
+
+        {/* Navigation */}
+        <div className="hidden md:flex items-center space-x-6">
+          <Link to="/">
+            <Button 
+              variant={location.pathname === "/" ? "default" : "ghost"} 
+              size="sm"
+              className="flex items-center"
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Inicio
+            </Button>
+          </Link>
+          <Link to="/programas">
+            <Button 
+              variant={location.pathname === "/programas" ? "default" : "ghost"} 
+              size="sm"
+              className="flex items-center"
+            >
+              <GraduationCap className="h-4 w-4 mr-2" />
+              Programas
+            </Button>
+          </Link>
+          <Link to="/flights">
+            <Button 
+              variant={location.pathname === "/flights" ? "default" : "ghost"} 
+              size="sm"
+              className="flex items-center"
+            >
+              <Plane className="h-4 w-4 mr-2" />
+              Vuelos
+            </Button>
+          </Link>
         </div>
 
         {/* Search Bar */}

@@ -1,19 +1,57 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { X, Download, Send } from "lucide-react";
+import { X, Download, Send, Loader2 } from "lucide-react";
 import { Program } from "@/types/program";
+import { usePDFGenerator } from "@/hooks/usePDFGenerator";
+import { useToast } from "@/hooks/use-toast";
 
 interface QuoteCartProps {
   programs: Program[];
   onRemoveProgram: (programId: string) => void;
-  onDownloadPDF: () => void;
   onSendQuote: () => void;
 }
 
-export function QuoteCart({ programs, onRemoveProgram, onDownloadPDF, onSendQuote }: QuoteCartProps) {
+export function QuoteCart({ programs, onRemoveProgram, onSendQuote }: QuoteCartProps) {
   const totalUSD = programs.reduce((sum, program) => sum + program.priceUSD, 0);
+  const { generateQuotePDF } = usePDFGenerator();
+  const { toast } = useToast();
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (programs.length === 0) {
+      toast({
+        title: "Sin programas",
+        description: "Agrega al menos un programa para generar la cotización.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    
+    try {
+      // Simular un pequeño delay para mostrar el estado de carga
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      generateQuotePDF(programs);
+      toast({
+        title: "PDF generado exitosamente",
+        description: `Cotización con ${programs.length} programa${programs.length !== 1 ? 's' : ''} descargada.`,
+      });
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      toast({
+        title: "Error al generar PDF",
+        description: "Hubo un problema al crear la cotización. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
   
   if (programs.length === 0) {
     return (
@@ -90,12 +128,22 @@ export function QuoteCart({ programs, onRemoveProgram, onDownloadPDF, onSendQuot
         {/* Actions */}
         <div className="space-y-2">
           <Button 
-            onClick={onDownloadPDF}
+            onClick={handleDownloadPDF}
             variant="outline" 
             className="w-full"
+            disabled={isGeneratingPDF || programs.length === 0}
           >
-            <Download className="h-4 w-4 mr-2" />
-            Descargar PDF
+            {isGeneratingPDF ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generando PDF...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Descargar PDF
+              </>
+            )}
           </Button>
           
           <Button 
@@ -110,7 +158,7 @@ export function QuoteCart({ programs, onRemoveProgram, onDownloadPDF, onSendQuot
         {/* Contact Info */}
         <div className="text-xs text-muted-foreground text-center pt-2 border-t">
           <p>¿Necesitas ayuda?</p>
-          <p className="font-medium">contacto@stc.com</p>
+                      <p className="font-medium">contacto@studenttravelcenter.com</p>
           <p>+57 1 234 5678</p>
         </div>
       </CardContent>

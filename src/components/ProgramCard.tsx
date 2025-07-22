@@ -11,18 +11,16 @@ interface ProgramCardProps {
 
 const typeIcons = {
   language: GraduationCap,
-  university: Globe,
   internship: Briefcase,
   volunteer: Heart,
-  professional: Briefcase
+  aupair: Users
 };
 
 const typeLabels = {
-  language: "Idiomas",
-  university: "Universidad",
-  internship: "Prácticas",
-  volunteer: "Voluntariado",
-  professional: "Profesional"
+  language: "Cursos de inglés",
+  internship: "Prácticas internacionales",
+  volunteer: "Voluntariados",
+  aupair: "AuPair"
 };
 
 export function ProgramCard({ program, onAddToQuote }: ProgramCardProps) {

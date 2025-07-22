@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plane, GraduationCap, Globe2, Star } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-image.jpg";
 
 export function Hero() {
   return (
-    <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
+    <section className="relative h-[calc(100vh-4rem)] min-h-[500px] flex items-center justify-center overflow-hidden">
       {/* Background Image */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -34,21 +35,24 @@ export function Hero() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button 
-              size="lg" 
-              className="bg-white text-primary hover:bg-white/90 shadow-glow transition-all duration-300 px-8 py-3"
-            >
-              <GraduationCap className="h-5 w-5 mr-2" />
-              Ver Programas
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="border-white text-white hover:bg-white hover:text-primary px-8 py-3"
-            >
-              <Plane className="h-5 w-5 mr-2" />
-              Buscar Vuelos
-            </Button>
+            <Link to="/programas">
+              <Button 
+                size="lg" 
+                className="bg-white text-primary hover:bg-white/90 shadow-glow transition-all duration-300 px-8 py-3"
+              >
+                <GraduationCap className="h-5 w-5 mr-2" />
+                Ver Programas
+              </Button>
+            </Link>
+            <Link to="/flights">
+              <Button 
+                size="lg"
+                className="bg-white text-primary hover:bg-white/90 shadow-glow transition-all duration-300 px-8 py-3"
+              >
+                <Plane className="h-5 w-5 mr-2" />
+                Buscar Vuelos
+              </Button>
+            </Link>
           </div>
 
           {/* Stats */}
@@ -68,9 +72,6 @@ export function Hero() {
           </div>
         </div>
       </div>
-
-      {/* Decorative Elements */}
-      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );
 }
