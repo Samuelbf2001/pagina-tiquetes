@@ -140,8 +140,8 @@ export function QuoteCart({ programs, onRemoveProgram, onSendQuote }: QuoteCartP
               </>
             ) : (
               <>
-                <Download className="h-4 w-4 mr-2" />
-                Descargar PDF
+            <Download className="h-4 w-4 mr-2" />
+            Descargar PDF
               </>
             )}
           </Button>

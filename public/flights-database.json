@@ -1,0 +1,1387 @@
+{
+  "vuelos": {
+    "flight_001": {
+      "airline": "British Airways",
+      "airlineCode": "BA",
+      "airlineLogo": "/logos/british-airways.png",
+      "flightNumber": "BA2237",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "LHR",
+          "name": "Heathrow Airport",
+          "city": "Londres",
+          "country": "Reino Unido",
+          "terminal": "Terminal 5"
+        },
+        "stops": [
+          {
+            "code": "MAD",
+            "name": "Adolfo Suárez Madrid-Barajas",
+            "city": "Madrid",
+            "country": "España",
+            "terminal": "Terminal 4"
+          }
+        ],
+        "duration": {
+          "total": "14h 25m",
+          "flying": "12h 10m"
+        },
+        "distance": 8544
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-08-05",
+          "time": "23:45",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-08-06",
+          "time": "19:10",
+          "timezone": "GMT"
+        },
+        "layovers": [
+          {
+            "airport": {
+              "code": "MAD",
+              "name": "Adolfo Suárez Madrid-Barajas",
+              "city": "Madrid",
+              "country": "España",
+              "terminal": "Terminal 4"
+            },
+            "duration": "2h 15m",
+            "aircraft": "Boeing 787-9"
+          }
+        ]
+      },
+      "aircraft": "Boeing 787-9",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1250,
+        "agencyPrice": 950,
+        "discount": 24,
+        "taxes": 180,
+        "fees": 45,
+        "total": 1175,
+        "priceBreakdown": {
+          "baseFare": 950,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 120
+            },
+            {
+              "code": "GB",
+              "name": "UK Air Passenger Duty",
+              "amount": 60
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 25
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 20
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 8,
+        "cabinClass": "economy",
+        "bookingClass": "M",
+        "refundable": false,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Cena", "Desayuno"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "8kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 14,
+        "cancellationPolicy": "Cambios permitidos con tarifa",
+        "changePolicy": "Cambios: $150 USD + diferencia tarifaria"
+      }
+    },
+    "flight_002": {
+      "airline": "Air France",
+      "airlineCode": "AF",
+      "airlineLogo": "/logos/air-france.png",
+      "flightNumber": "AF422",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "CDG",
+          "name": "Charles de Gaulle Airport",
+          "city": "París",
+          "country": "Francia",
+          "terminal": "Terminal 2E"
+        },
+        "stops": [],
+        "duration": {
+          "total": "10h 45m",
+          "flying": "10h 45m"
+        },
+        "distance": 8498
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-09-02",
+          "time": "22:30",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-09-03",
+          "time": "15:15",
+          "timezone": "CET"
+        }
+      },
+      "aircraft": "Airbus A330-200",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1180,
+        "agencyPrice": 890,
+        "discount": 25,
+        "taxes": 165,
+        "fees": 40,
+        "total": 1095,
+        "priceBreakdown": {
+          "baseFare": 890,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 95
+            },
+            {
+              "code": "FR",
+              "name": "France Solidarity Tax",
+              "amount": 70
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 25
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 15
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 12,
+        "cabinClass": "economy",
+        "bookingClass": "Y",
+        "refundable": true,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Cena", "Desayuno"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "12kg",
+          "dimensions": "55x35x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 21,
+        "cancellationPolicy": "Reembolsable con penalidad",
+        "changePolicy": "Cambios: $100 USD + diferencia tarifaria"
+      }
+    },
+    "flight_003": {
+      "airline": "Avianca",
+      "airlineCode": "AV",
+      "airlineLogo": "/logos/avianca.png",
+      "flightNumber": "AV027",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "MAD",
+          "name": "Adolfo Suárez Madrid-Barajas",
+          "city": "Madrid",
+          "country": "España",
+          "terminal": "Terminal 4"
+        },
+        "stops": [],
+        "duration": {
+          "total": "9h 30m",
+          "flying": "9h 30m"
+        },
+        "distance": 8048
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-08-15",
+          "time": "23:55",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-08-16",
+          "time": "16:25",
+          "timezone": "CET"
+        }
+      },
+      "aircraft": "Boeing 787-8",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1500,
+        "agencyPrice": 1125,
+        "discount": 25,
+        "taxes": 195,
+        "fees": 55,
+        "total": 1375,
+        "priceBreakdown": {
+          "baseFare": 1125,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 125
+            },
+            {
+              "code": "ES",
+              "name": "Spain Airport Tax",
+              "amount": 70
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 35
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 20
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 18,
+        "cabinClass": "economy",
+        "bookingClass": "Y",
+        "refundable": true,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Cena", "Desayuno"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "10kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 14,
+        "cancellationPolicy": "Reembolsable con penalidad de $150",
+        "changePolicy": "Cambios: $100 USD + diferencia tarifaria"
+      }
+    },
+    "flight_004": {
+      "airline": "Air China",
+      "airlineCode": "CA",
+      "airlineLogo": "/logos/air-china.png",
+      "flightNumber": "CA908",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "PEK",
+          "name": "Beijing Capital International Airport",
+          "city": "Beijing",
+          "country": "China",
+          "terminal": "Terminal 3"
+        },
+        "stops": [
+          {
+            "code": "MAD",
+            "name": "Adolfo Suárez Madrid-Barajas",
+            "city": "Madrid",
+            "country": "España",
+            "terminal": "Terminal 4"
+          },
+          {
+            "code": "AMS",
+            "name": "Amsterdam Airport Schiphol",
+            "city": "Amsterdam",
+            "country": "Países Bajos",
+            "terminal": "Terminal 1"
+          }
+        ],
+        "duration": {
+          "total": "24h 30m",
+          "flying": "19h 15m"
+        },
+        "distance": 17854
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-08-20",
+          "time": "14:30",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-08-22",
+          "time": "09:00",
+          "timezone": "CST"
+        },
+        "layovers": [
+          {
+            "airport": {
+              "code": "MAD",
+              "name": "Adolfo Suárez Madrid-Barajas",
+              "city": "Madrid",
+              "country": "España",
+              "terminal": "Terminal 4"
+            },
+            "duration": "3h 45m",
+            "aircraft": "Boeing 777-300ER"
+          },
+          {
+            "airport": {
+              "code": "AMS",
+              "name": "Amsterdam Airport Schiphol",
+              "city": "Amsterdam",
+              "country": "Países Bajos",
+              "terminal": "Terminal 1"
+            },
+            "duration": "1h 30m",
+            "aircraft": "Airbus A350-900"
+          }
+        ]
+      },
+      "aircraft": "Boeing 777-300ER",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 2200,
+        "agencyPrice": 1650,
+        "discount": 25,
+        "taxes": 320,
+        "fees": 85,
+        "total": 2055,
+        "priceBreakdown": {
+          "baseFare": 1650,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 180
+            },
+            {
+              "code": "CN",
+              "name": "China Airport Tax",
+              "amount": 140
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 45
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 40
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 4,
+        "cabinClass": "economy",
+        "bookingClass": "T",
+        "refundable": false,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Almuerzo", "Cena", "Desayuno"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "10kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 90,
+        "advancePurchase": 21,
+        "cancellationPolicy": "No reembolsable",
+        "changePolicy": "Cambios: $200 USD + diferencia tarifaria"
+      }
+    },
+    "flight_005": {
+      "airline": "Lufthansa",
+      "airlineCode": "LH",
+      "airlineLogo": "/logos/lufthansa.png",
+      "flightNumber": "LH1442",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "TXL",
+          "name": "Berlin Brandenburg Airport",
+          "city": "Berlín",
+          "country": "Alemania",
+          "terminal": "Terminal 1"
+        },
+        "stops": [
+          {
+            "code": "CDG",
+            "name": "Charles de Gaulle Airport",
+            "city": "París",
+            "country": "Francia",
+            "terminal": "Terminal 2E"
+          }
+        ],
+        "duration": {
+          "total": "16h 20m",
+          "flying": "13h 45m"
+        },
+        "distance": 9125
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-09-10",
+          "time": "11:30",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-09-11",
+          "time": "12:50",
+          "timezone": "CET"
+        },
+        "layovers": [
+          {
+            "airport": {
+              "code": "CDG",
+              "name": "Charles de Gaulle Airport",
+              "city": "París",
+              "country": "Francia",
+              "terminal": "Terminal 2E"
+            },
+            "duration": "2h 35m",
+            "aircraft": "Airbus A320"
+          }
+        ]
+      },
+      "aircraft": "Airbus A340-600",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1350,
+        "agencyPrice": 1010,
+        "discount": 25,
+        "taxes": 205,
+        "fees": 50,
+        "total": 1265,
+        "priceBreakdown": {
+          "baseFare": 1010,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 135
+            },
+            {
+              "code": "DE",
+              "name": "Germany Airport Tax",
+              "amount": 70
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 30
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 20
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 15,
+        "cabinClass": "economy",
+        "bookingClass": "W",
+        "refundable": true,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Almuerzo", "Cena"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "8kg",
+          "dimensions": "55x40x20cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 14,
+        "cancellationPolicy": "Reembolsable con penalidad de $120",
+        "changePolicy": "Cambios: $120 USD + diferencia tarifaria"
+      }
+    },
+    "flight_006": {
+      "airline": "KLM",
+      "airlineCode": "KL",
+      "airlineLogo": "/logos/klm.png",
+      "flightNumber": "KL743",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "AMS",
+          "name": "Amsterdam Airport Schiphol",
+          "city": "Amsterdam",
+          "country": "Países Bajos",
+          "terminal": "Terminal 1"
+        },
+        "stops": [],
+        "duration": {
+          "total": "11h 15m",
+          "flying": "11h 15m"
+        },
+        "distance": 8654
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-09-05",
+          "time": "21:45",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-09-06",
+          "time": "16:00",
+          "timezone": "CET"
+        }
+      },
+      "aircraft": "Boeing 787-10",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1280,
+        "agencyPrice": 960,
+        "discount": 25,
+        "taxes": 175,
+        "fees": 45,
+        "total": 1180,
+        "priceBreakdown": {
+          "baseFare": 960,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 105
+            },
+            {
+              "code": "NL",
+              "name": "Netherlands Airport Tax",
+              "amount": 70
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 25
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 20
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 22,
+        "cabinClass": "economy",
+        "bookingClass": "Y",
+        "refundable": true,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Cena", "Desayuno"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "8kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 14,
+        "cancellationPolicy": "Reembolsable con penalidad de $100",
+        "changePolicy": "Cambios: $100 USD + diferencia tarifaria"
+      }
+    },
+    "flight_007": {
+      "airline": "Iberia",
+      "airlineCode": "IB",
+      "airlineLogo": "/logos/iberia.png",
+      "flightNumber": "IB6312",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "BCN",
+          "name": "Barcelona-El Prat Airport",
+          "city": "Barcelona",
+          "country": "España",
+          "terminal": "Terminal 1"
+        },
+        "stops": [
+          {
+            "code": "MAD",
+            "name": "Adolfo Suárez Madrid-Barajas",
+            "city": "Madrid",
+            "country": "España",
+            "terminal": "Terminal 4"
+          }
+        ],
+        "duration": {
+          "total": "12h 45m",
+          "flying": "11h 20m"
+        },
+        "distance": 8214
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-08-25",
+          "time": "16:20",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-08-26",
+          "time": "12:05",
+          "timezone": "CET"
+        },
+        "layovers": [
+          {
+            "airport": {
+              "code": "MAD",
+              "name": "Adolfo Suárez Madrid-Barajas",
+              "city": "Madrid",
+              "country": "España",
+              "terminal": "Terminal 4"
+            },
+            "duration": "1h 25m",
+            "aircraft": "Airbus A321"
+          }
+        ]
+      },
+      "aircraft": "Airbus A330-300",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1420,
+        "agencyPrice": 1065,
+        "discount": 25,
+        "taxes": 185,
+        "fees": 50,
+        "total": 1300,
+        "priceBreakdown": {
+          "baseFare": 1065,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 115
+            },
+            {
+              "code": "ES",
+              "name": "Spain Airport Tax",
+              "amount": 70
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 30
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 20
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 10,
+        "cabinClass": "economy",
+        "bookingClass": "N",
+        "refundable": false,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Almuerzo", "Cena"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "10kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 14,
+        "cancellationPolicy": "Cambios permitidos con tarifa",
+        "changePolicy": "Cambios: $130 USD + diferencia tarifaria"
+      }
+    },
+    "flight_008": {
+      "airline": "American Airlines",
+      "airlineCode": "AA",
+      "airlineLogo": "/logos/american-airlines.png",
+      "flightNumber": "AA921",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "MIA",
+          "name": "Miami International Airport",
+          "city": "Miami",
+          "country": "Estados Unidos",
+          "terminal": "Terminal J"
+        },
+        "stops": [],
+        "duration": {
+          "total": "4h 35m",
+          "flying": "4h 35m"
+        },
+        "distance": 2054
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-08-12",
+          "time": "08:15",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-08-12",
+          "time": "12:50",
+          "timezone": "EST"
+        }
+      },
+      "aircraft": "Boeing 737 MAX 8",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 650,
+        "agencyPrice": 488,
+        "discount": 25,
+        "taxes": 85,
+        "fees": 35,
+        "total": 608,
+        "priceBreakdown": {
+          "baseFare": 488,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 45
+            },
+            {
+              "code": "US",
+              "name": "US Airport Tax",
+              "amount": 40
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 20
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 15
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 25,
+        "cabinClass": "economy",
+        "bookingClass": "Y",
+        "refundable": true,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Snack"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "10kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": false,
+          "weight": "23kg",
+          "additionalFee": 35
+        }
+      },
+      "restrictions": {
+        "minStay": 0,
+        "maxStay": 365,
+        "advancePurchase": 0,
+        "cancellationPolicy": "Reembolsable con penalidad de $75",
+        "changePolicy": "Cambios: $75 USD + diferencia tarifaria"
+      }
+    },
+    "flight_009": {
+      "airline": "Air Canada",
+      "airlineCode": "AC",
+      "airlineLogo": "/logos/air-canada.png",
+      "flightNumber": "AC92",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "YYZ",
+          "name": "Toronto Pearson International",
+          "city": "Toronto",
+          "country": "Canadá",
+          "terminal": "Terminal 1"
+        },
+        "stops": [
+          {
+            "code": "MIA",
+            "name": "Miami International Airport",
+            "city": "Miami",
+            "country": "Estados Unidos",
+            "terminal": "Terminal J"
+          }
+        ],
+        "duration": {
+          "total": "10h 25m",
+          "flying": "8h 10m"
+        },
+        "distance": 4128
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-09-08",
+          "time": "13:45",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-09-09",
+          "time": "06:10",
+          "timezone": "EST"
+        },
+        "layovers": [
+          {
+            "airport": {
+              "code": "MIA",
+              "name": "Miami International Airport",
+              "city": "Miami",
+              "country": "Estados Unidos",
+              "terminal": "Terminal J"
+            },
+            "duration": "2h 15m",
+            "aircraft": "Airbus A220-300"
+          }
+        ]
+      },
+      "aircraft": "Boeing 787-9",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 1150,
+        "agencyPrice": 863,
+        "discount": 25,
+        "taxes": 145,
+        "fees": 40,
+        "total": 1048,
+        "priceBreakdown": {
+          "baseFare": 863,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 85
+            },
+            {
+              "code": "CA",
+              "name": "Canada Airport Tax",
+              "amount": 60
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 25
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 15
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 14,
+        "cabinClass": "economy",
+        "bookingClass": "G",
+        "refundable": true,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Almuerzo", "Cena"],
+        "entertainment": true,
+        "wifi": true,
+        "powerOutlets": true,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "10kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 7,
+        "maxStay": 365,
+        "advancePurchase": 14,
+        "cancellationPolicy": "Reembolsable con penalidad de $100",
+        "changePolicy": "Cambios: $100 USD + diferencia tarifaria"
+      }
+    },
+    "flight_010": {
+      "airline": "Copa Airlines",
+      "airlineCode": "CM",
+      "airlineLogo": "/logos/copa-airlines.png",
+      "flightNumber": "CM315",
+      "route": {
+        "origin": {
+          "code": "BOG",
+          "name": "El Dorado International Airport",
+          "city": "Bogotá",
+          "country": "Colombia",
+          "terminal": "Terminal 1"
+        },
+        "destination": {
+          "code": "SJO",
+          "name": "Juan Santamaría International",
+          "city": "San José",
+          "country": "Costa Rica",
+          "terminal": "Terminal 1"
+        },
+        "stops": [],
+        "duration": {
+          "total": "2h 45m",
+          "flying": "2h 45m"
+        },
+        "distance": 1124
+      },
+      "schedule": {
+        "departure": {
+          "date": "2024-08-18",
+          "time": "15:30",
+          "timezone": "COT"
+        },
+        "arrival": {
+          "date": "2024-08-18",
+          "time": "17:15",
+          "timezone": "CST"
+        }
+      },
+      "aircraft": "Boeing 737-800",
+      "pricing": {
+        "currency": "USD",
+        "publicPrice": 380,
+        "agencyPrice": 285,
+        "discount": 25,
+        "taxes": 55,
+        "fees": 25,
+        "total": 365,
+        "priceBreakdown": {
+          "baseFare": 285,
+          "taxes": [
+            {
+              "code": "YQ",
+              "name": "Fuel Surcharge",
+              "amount": 35
+            },
+            {
+              "code": "CR",
+              "name": "Costa Rica Airport Tax",
+              "amount": 20
+            }
+          ],
+          "fees": [
+            {
+              "type": "booking",
+              "description": "Booking Fee",
+              "amount": 15
+            },
+            {
+              "type": "service",
+              "description": "Service Fee",
+              "amount": 10
+            }
+          ]
+        }
+      },
+      "availability": {
+        "seats": 30,
+        "cabinClass": "economy",
+        "bookingClass": "Y",
+        "refundable": false,
+        "changeable": true,
+        "lastUpdate": "2024-01-15T10:30:00Z"
+      },
+      "services": {
+        "meals": ["Snack"],
+        "entertainment": false,
+        "wifi": false,
+        "powerOutlets": false,
+        "extraLegroom": false
+      },
+      "baggage": {
+        "carry": {
+          "included": true,
+          "weight": "8kg",
+          "dimensions": "56x45x25cm"
+        },
+        "checked": {
+          "included": true,
+          "weight": "23kg"
+        }
+      },
+      "restrictions": {
+        "minStay": 0,
+        "maxStay": 365,
+        "advancePurchase": 0,
+        "cancellationPolicy": "Cambios permitidos con tarifa",
+        "changePolicy": "Cambios: $50 USD + diferencia tarifaria"
+      }
+    }
+  },
+  "aeropuertos": {
+    "BOG": {
+      "code": "BOG",
+      "name": "El Dorado International Airport",
+      "city": "Bogotá",
+      "country": "Colombia",
+      "timezone": "COT",
+      "terminals": ["Terminal 1", "Terminal 2"]
+    },
+    "LHR": {
+      "code": "LHR",
+      "name": "Heathrow Airport",
+      "city": "Londres",
+      "country": "Reino Unido",
+      "timezone": "GMT",
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 4", "Terminal 5"]
+    },
+    "CDG": {
+      "code": "CDG",
+      "name": "Charles de Gaulle Airport",
+      "city": "París",
+      "country": "Francia",
+      "timezone": "CET",
+      "terminals": ["Terminal 1", "Terminal 2A", "Terminal 2B", "Terminal 2C", "Terminal 2D", "Terminal 2E", "Terminal 2F", "Terminal 2G", "Terminal 3"]
+    },
+    "MAD": {
+      "code": "MAD",
+      "name": "Adolfo Suárez Madrid-Barajas",
+      "city": "Madrid",
+      "country": "España",
+      "timezone": "CET",
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 4", "Terminal 4S"]
+    },
+    "BCN": {
+      "code": "BCN",
+      "name": "Barcelona-El Prat Airport",
+      "city": "Barcelona",
+      "country": "España",
+      "timezone": "CET",
+      "terminals": ["Terminal 1", "Terminal 2A", "Terminal 2B", "Terminal 2C"]
+    },
+    "AMS": {
+      "code": "AMS",
+      "name": "Amsterdam Airport Schiphol",
+      "city": "Amsterdam",
+      "country": "Países Bajos",
+      "timezone": "CET",
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3"]
+    },
+    "MIA": {
+      "code": "MIA",
+      "name": "Miami International Airport",
+      "city": "Miami",
+      "country": "Estados Unidos",
+      "timezone": "EST",
+      "terminals": ["Terminal Central", "Terminal North", "Terminal South"]
+    },
+    "YYZ": {
+      "code": "YYZ",
+      "name": "Toronto Pearson International",
+      "city": "Toronto",
+      "country": "Canadá",
+      "timezone": "EST",
+      "terminals": ["Terminal 1", "Terminal 3"]
+    },
+    "SJO": {
+      "code": "SJO",
+      "name": "Juan Santamaría International",
+      "city": "San José",
+      "country": "Costa Rica",
+      "timezone": "CST",
+      "terminals": ["Terminal 1", "Terminal 2"]
+    },
+    "TXL": {
+      "code": "TXL",
+      "name": "Berlin Brandenburg Airport",
+      "city": "Berlín",
+      "country": "Alemania",
+      "timezone": "CET",
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 5"]
+    },
+    "PEK": {
+      "code": "PEK",
+      "name": "Beijing Capital International Airport",
+      "city": "Beijing",
+      "country": "China",
+      "timezone": "CST",
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3"]
+    }
+  },
+  "aerolineas": {
+    "BA": {
+      "code": "BA",
+      "name": "British Airways",
+      "country": "Reino Unido",
+      "logo": "/logos/british-airways.png"
+    },
+    "AF": {
+      "code": "AF",
+      "name": "Air France",
+      "country": "Francia",
+      "logo": "/logos/air-france.png"
+    },
+    "AV": {
+      "code": "AV",
+      "name": "Avianca",
+      "country": "Colombia",
+      "logo": "/logos/avianca.png"
+    },
+    "CA": {
+      "code": "CA",
+      "name": "Air China",
+      "country": "China",
+      "logo": "/logos/air-china.png"
+    },
+    "LH": {
+      "code": "LH",
+      "name": "Lufthansa",
+      "country": "Alemania",
+      "logo": "/logos/lufthansa.png"
+    },
+    "KL": {
+      "code": "KL",
+      "name": "KLM",
+      "country": "Países Bajos",
+      "logo": "/logos/klm.png"
+    },
+    "IB": {
+      "code": "IB",
+      "name": "Iberia",
+      "country": "España",
+      "logo": "/logos/iberia.png"
+    },
+    "AA": {
+      "code": "AA",
+      "name": "American Airlines",
+      "country": "Estados Unidos",
+      "logo": "/logos/american-airlines.png"
+    },
+    "AC": {
+      "code": "AC",
+      "name": "Air Canada",
+      "country": "Canadá",
+      "logo": "/logos/air-canada.png"
+    },
+    "CM": {
+      "code": "CM",
+      "name": "Copa Airlines",
+      "country": "Panamá",
+      "logo": "/logos/copa-airlines.png"
+    }
+  },
+  "metadata": {
+    "totalVuelos": 10,
+    "lastUpdated": "2024-01-15T10:30:00Z",
+    "currency": "USD",
+    "dataSource": "Student Travel Center Database",
+    "version": "1.0.0"
+  }
+} 

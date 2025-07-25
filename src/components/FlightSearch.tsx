@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 interface FlightSearchProps {
   onSearch: (criteria: FlightSearchCriteria) => void;
   isLoading?: boolean;
+  onFlightTypeChange?: (flightType: 'national' | 'international' | null) => void;
 }
 
 const internationalAirports = [
@@ -50,7 +51,7 @@ const nationalAirports = [
   { code: "VVC", name: "Villavicencio - Vanguardia", country: "Colombia" }
 ];
 
-export function FlightSearch({ onSearch, isLoading = false }: FlightSearchProps) {
+export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }: FlightSearchProps) {
   // Estado para seleccionar tipo de vuelo
   const [flightType, setFlightType] = useState<'national' | 'international' | null>(null);
   
@@ -72,6 +73,11 @@ export function FlightSearch({ onSearch, isLoading = false }: FlightSearchProps)
   const [departureDate, setDepartureDate] = useState<Date>();
   const [returnDate, setReturnDate] = useState<Date>();
   const [hasUSVisa, setHasUSVisa] = useState<boolean>(false);
+
+  // Notificar al padre cuando cambie el tipo de vuelo
+  useEffect(() => {
+    onFlightTypeChange?.(flightType);
+  }, [flightType, onFlightTypeChange]);
 
   // Función para obtener la lista de aeropuertos según el tipo
   const getAirportsList = () => {
@@ -160,7 +166,7 @@ export function FlightSearch({ onSearch, isLoading = false }: FlightSearchProps)
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 gap-4">
             {/* Vuelos Nacionales */}
             <Card className="cursor-pointer hover:shadow-md transition-all duration-300 hover:border-primary">
               <CardContent 

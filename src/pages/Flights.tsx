@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { FlightSearch } from "@/components/FlightSearch";
 import { FlightResults } from "@/components/FlightResults";
 import { FlightRouteOptions } from "@/components/FlightRouteOptions";
+import { ChatAssistant } from "@/components/ChatAssistant";
 import { Flight, FlightSearchCriteria } from "@/types/flight";
 import { mockFlights, searchFlights } from "@/data/mockFlights";
 import { getRouteInfo } from "@/utils/flightRoutes";
@@ -19,6 +20,7 @@ const Flights = () => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [currentSearchCriteria, setCurrentSearchCriteria] = useState<FlightSearchCriteria | null>(null);
   const [routeInfo, setRouteInfo] = useState<any>(null);
+  const [flightType, setFlightType] = useState<'national' | 'international' | null>(null);
   const { toast } = useToast();
 
   const handleSearch = async (criteria: FlightSearchCriteria) => {
@@ -122,6 +124,10 @@ const Flights = () => {
     setSelectedFlights(prev => [...prev, flight]);
   };
 
+  const handleFlightTypeChange = (type: 'national' | 'international' | null) => {
+    setFlightType(type);
+  };
+
   const totalSavings = searchResults.reduce((sum, flight) => 
     sum + (flight.pricing.publicPrice - flight.pricing.agencyPrice), 0
   );
@@ -183,7 +189,11 @@ const Flights = () => {
           {/* Sidebar - Búsqueda */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-              <FlightSearch onSearch={handleSearch} isLoading={isLoading} />
+              <FlightSearch 
+                onSearch={handleSearch} 
+                isLoading={isLoading}
+                onFlightTypeChange={handleFlightTypeChange}
+              />
               
               {/* Información adicional */}
               <Card className="mt-6">
@@ -223,21 +233,27 @@ const Flights = () => {
           {/* Main Content - Resultados */}
           <div className="lg:col-span-2">
             {!hasSearched ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Plane className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Busca vuelos con tarifas B2B</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">
-                    Completa el formulario de búsqueda para acceder a nuestras tarifas negociadas exclusivas para agencias.
-                  </p>
-                  <div className="mt-6">
-                    <Badge className="bg-green-100 text-green-800">
-                      <TrendingDown className="h-3 w-3 mr-1" />
-                      Hasta 30% de descuento
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+              flightType === null ? (
+                /* Mostrar chat cuando no hay tipo de vuelo seleccionado */
+                <ChatAssistant />
+              ) : (
+                /* Mostrar card de búsqueda cuando hay tipo seleccionado */
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Plane className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">Busca vuelos con tarifas B2B</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      Completa el formulario de búsqueda para acceder a nuestras tarifas negociadas exclusivas para agencias.
+                    </p>
+                    <div className="mt-6">
+                      <Badge className="bg-green-100 text-green-800">
+                        <TrendingDown className="h-3 w-3 mr-1" />
+                        Hasta 30% de descuento
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
             ) : showRouteOptions && routeInfo ? (
               <FlightRouteOptions
                 origin={currentSearchCriteria?.origin || ''}
