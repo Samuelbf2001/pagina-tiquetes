@@ -1,1 +1,10 @@
- 
+<svg width="280" height="120" viewBox="0 0 280 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- STUDENT - texto gris -->
+  <text x="140" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#888888">STUDENT</text>
+  
+  <!-- TRAVEL - texto azul/turquesa -->
+  <text x="140" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="#2D8AA6">TRAVEL</text>
+  
+  <!-- CENTER - texto naranja -->
+  <text x="140" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#FF8C00">CENTER</text>
+</svg> 

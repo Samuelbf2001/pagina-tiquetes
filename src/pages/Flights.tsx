@@ -21,6 +21,7 @@ const Flights = () => {
   const [currentSearchCriteria, setCurrentSearchCriteria] = useState<FlightSearchCriteria | null>(null);
   const [routeInfo, setRouteInfo] = useState<any>(null);
   const [flightType, setFlightType] = useState<'national' | 'international' | null>(null);
+  const [chatFlights, setChatFlights] = useState<Flight[]>([]);
   const { toast } = useToast();
 
   const handleSearch = async (criteria: FlightSearchCriteria) => {
@@ -126,6 +127,14 @@ const Flights = () => {
 
   const handleFlightTypeChange = (type: 'national' | 'international' | null) => {
     setFlightType(type);
+  };
+
+  const handleChatFlightsDetected = (flights: Flight[]) => {
+    setChatFlights(flights);
+    toast({
+      title: "Vuelos encontrados",
+      description: `El asistente encontró ${flights.length} vuelo${flights.length !== 1 ? 's' : ''} para ti.`,
+    });
   };
 
   const totalSavings = searchResults.reduce((sum, flight) => 
@@ -235,7 +244,7 @@ const Flights = () => {
             {!hasSearched ? (
               flightType === null ? (
                 /* Mostrar chat cuando no hay tipo de vuelo seleccionado */
-                <ChatAssistant />
+                <ChatAssistant onFlightsDetected={handleChatFlightsDetected} />
               ) : (
                 /* Mostrar card de búsqueda cuando hay tipo seleccionado */
                 <Card>
@@ -268,6 +277,24 @@ const Flights = () => {
                 onSelectFlight={handleSelectFlight}
                 isLoading={isLoading}
               />
+            )}
+
+            {/* Vuelos del chatbot */}
+            {chatFlights.length > 0 && (
+              <div className="mt-8">
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                    Vuelos encontrados por el asistente
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    El asistente de viajes encontró estos vuelos para ti
+                  </p>
+                </div>
+                <FlightResults 
+                  flights={chatFlights}
+                  onSelectFlight={handleSelectFlight}
+                />
+              </div>
             )}
           </div>
         </div>
