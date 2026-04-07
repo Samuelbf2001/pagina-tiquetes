@@ -1,211 +1,250 @@
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Filter, X } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { X, Filter } from "lucide-react";
-import { useState } from "react";
-import { Program } from "@/types/program";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import type { Program } from "@/types/program";
 
 interface FilterState {
-  type: string;
+  type: Program["type"] | "all";
   destination: string;
   priceRange: [number, number];
   duration: string;
-  level: string;
-  visaRequired: string;
+  level: Program["level"] | "all";
+  visaRequired: "all" | "required" | "not-required";
 }
 
 interface ProgramFiltersProps {
   programs: Program[];
   onFiltersChange: (filteredPrograms: Program[]) => void;
+  onResetReady?: (resetFilters: () => void) => void;
 }
 
-export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProps) {
-  const [filters, setFilters] = useState<FilterState>({
-    type: "all",
-    destination: "all",
-    priceRange: [0, 10000],
-    duration: "all",
-    level: "all",
-    visaRequired: "all"
+const initialFilters: FilterState = {
+  type: "all",
+  destination: "all",
+  priceRange: [0, 10000],
+  duration: "all",
+  level: "all",
+  visaRequired: "all",
+};
+
+const internshipDestinations = [
+  "Dubai",
+  "Qatar",
+  "Tailandia",
+  "Maldivas",
+  "Emiratos Arabes Unidos",
+  "Bahrein",
+  "Vietnam",
+  "Hong Kong",
+  "Hawai",
+  "Alaska",
+  "Estados Unidos",
+  "Espana",
+];
+
+const asianDestinations = [
+  "Qatar",
+  "Tailandia",
+  "Maldivas",
+  "Emiratos Arabes Unidos",
+  "Bahrein",
+  "Vietnam",
+  "Hong Kong",
+  "Dubai",
+];
+
+const usDestinations = ["Estados Unidos", "Hawai", "Alaska"];
+const spainDestinations = ["Espana"];
+
+const typeLabels: Record<Program["type"], string> = {
+  language: "Cursos de ingles",
+  volunteer: "Voluntariados",
+  internship: "Practicas internacionales",
+  aupair: "AuPair",
+};
+
+const getAvailableDestinations = (programs: Program[], filters: FilterState) => {
+  if (filters.type === "all") {
+    return [...new Set(programs.map((program) => program.country))];
+  }
+
+  if (filters.type === "internship") {
+    return internshipDestinations;
+  }
+
+  return [...new Set(programs.filter((program) => program.type === filters.type).map((program) => program.country))];
+};
+
+const getDurationOptions = (filters: FilterState) => {
+  if (filters.type === "internship" && filters.destination !== "all") {
+    if (usDestinations.includes(filters.destination)) {
+      return [
+        { value: "all", label: "Cualquier duracion" },
+        { value: "6-12-months", label: "6-12 meses" },
+      ];
+    }
+
+    if (asianDestinations.includes(filters.destination)) {
+      return [
+        { value: "all", label: "Cualquier duracion" },
+        { value: "6-18-months", label: "6-18 meses" },
+      ];
+    }
+
+    if (spainDestinations.includes(filters.destination)) {
+      return [
+        { value: "all", label: "Cualquier duracion" },
+        { value: "3-months", label: "3 meses" },
+        { value: "6-12-months", label: "6-12 meses" },
+      ];
+    }
+  }
+
+  return [
+    { value: "all", label: "Cualquier duracion" },
+    { value: "short", label: "Corta (1-8 semanas)" },
+    { value: "medium", label: "Media (9-16 semanas)" },
+    { value: "long", label: "Larga (17+ semanas)" },
+  ];
+};
+
+const normalizeFilters = (
+  nextFilters: FilterState,
+  previousFilters: FilterState,
+  programs: Program[]
+) => {
+  const availableDestinations = getAvailableDestinations(programs, nextFilters);
+  const normalizedDestination =
+    nextFilters.destination !== "all" && !availableDestinations.includes(nextFilters.destination)
+      ? "all"
+      : nextFilters.destination;
+  const resetDuration =
+    nextFilters.type === "internship" && normalizedDestination !== previousFilters.destination
+      ? "all"
+      : nextFilters.duration;
+
+  return {
+    ...nextFilters,
+    destination: normalizedDestination,
+    duration: resetDuration,
+  };
+};
+
+const filterPrograms = (programs: Program[], filters: FilterState) =>
+  programs.filter((program) => {
+    if (filters.type !== "all" && program.type !== filters.type) return false;
+    if (filters.destination !== "all" && program.country !== filters.destination) return false;
+    if (program.priceUSD < filters.priceRange[0] || program.priceUSD > filters.priceRange[1]) return false;
+
+    if (filters.duration !== "all") {
+      const durationWeeks =
+        program.durationUnit === "weeks" ? program.duration : program.duration * 4;
+      const durationMonths =
+        program.durationUnit === "months" ? program.duration : program.duration / 4;
+
+      if (filters.type === "internship") {
+        if (filters.duration === "3-months" && durationMonths !== 3) return false;
+        if (filters.duration === "6-12-months" && (durationMonths < 6 || durationMonths > 12)) return false;
+        if (filters.duration === "6-18-months" && (durationMonths < 6 || durationMonths > 18)) return false;
+      } else {
+        if (filters.duration === "short" && durationWeeks > 8) return false;
+        if (filters.duration === "medium" && (durationWeeks <= 8 || durationWeeks > 16)) return false;
+        if (filters.duration === "long" && durationWeeks <= 16) return false;
+      }
+    }
+
+    if (filters.level !== "all" && program.level !== "all" && program.level !== filters.level) {
+      return false;
+    }
+
+    if (filters.visaRequired !== "all") {
+      const requiresVisa = filters.visaRequired === "required";
+      if (program.visaRequired !== requiresVisa) return false;
+    }
+
+    return true;
   });
 
+export function ProgramFilters({
+  programs,
+  onFiltersChange,
+  onResetReady,
+}: ProgramFiltersProps) {
+  const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Destinos específicos para prácticas internacionales
-  const internshipDestinations = [
-    "Dubái",
-    "Qatar", 
-    "Tailandia",
-    "Maldivas",
-    "Emiratos Árabes Unidos",
-    "Bahréin",
-    "Vietnam",
-    "Hong Kong",
-    "Hawái",
-    "Alaska",
-    "Estados Unidos",
-    "España"
-  ];
+  const destinations = useMemo(() => getAvailableDestinations(programs, filters), [filters, programs]);
+  const programTypes = useMemo(() => [...new Set(programs.map((program) => program.type))], [programs]);
+  const durationOptions = useMemo(() => getDurationOptions(filters), [filters]);
+  const filteredPrograms = useMemo(() => filterPrograms(programs, filters), [filters, programs]);
 
-  // Categorización de destinos para prácticas
-  const asianDestinations = ["Qatar", "Tailandia", "Maldivas", "Emiratos Árabes Unidos", "Bahréin", "Vietnam", "Hong Kong", "Dubái"];
-  const usDestinations = ["Estados Unidos", "Hawái", "Alaska"];
-  const spainDestinations = ["España"];
+  useEffect(() => {
+    onFiltersChange(filteredPrograms);
+  }, [filteredPrograms, onFiltersChange]);
 
-  // Obtener destinos dinámicamente basados en el tipo seleccionado
-  const getAvailableDestinations = () => {
-    if (filters.type === "all") {
-      return [...new Set(programs.map(p => p.country))];
-    }
-    if (filters.type === "internship") {
-      return internshipDestinations;
-    }
-    return [...new Set(programs.filter(p => p.type === filters.type).map(p => p.country))];
+  const clearFilters = useCallback(() => {
+    setFilters(initialFilters);
+  }, []);
+
+  useEffect(() => {
+    onResetReady?.(clearFilters);
+  }, [clearFilters, onResetReady]);
+
+  const applyFilters = (partialFilters: Partial<FilterState>) => {
+    setFilters((currentFilters) =>
+      normalizeFilters(
+        {
+          ...currentFilters,
+          ...partialFilters,
+        },
+        currentFilters,
+        programs
+      )
+    );
   };
 
-  // Obtener opciones de duración dinámicamente para prácticas internacionales
-  const getDurationOptions = () => {
-    if (filters.type === "internship" && filters.destination !== "all") {
-      if (usDestinations.includes(filters.destination)) {
-        return [
-          { value: "all", label: "Cualquier duración" },
-          { value: "6-12-months", label: "6-12 meses" }
-        ];
-      } else if (asianDestinations.includes(filters.destination)) {
-        return [
-          { value: "all", label: "Cualquier duración" },
-          { value: "6-18-months", label: "6-18 meses" }
-        ];
-      } else if (spainDestinations.includes(filters.destination)) {
-        return [
-          { value: "all", label: "Cualquier duración" },
-          { value: "3-months", label: "3 meses" },
-          { value: "6-12-months", label: "6-12 meses" }
-        ];
-      }
-    }
-    
-    // Opciones por defecto para otros tipos
-    return [
-      { value: "all", label: "Cualquier duración" },
-      { value: "short", label: "Corta (1-8 semanas)" },
-      { value: "medium", label: "Media (9-16 semanas)" },
-      { value: "long", label: "Larga (17+ semanas)" }
-    ];
-  };
-
-  const destinations = getAvailableDestinations();
-  const programTypes = [...new Set(programs.map(p => p.type))];
-  const durationOptions = getDurationOptions();
-
-  const typeLabels = {
-    language: "Cursos de inglés",
-    volunteer: "Voluntariados",
-    internship: "Prácticas internacionales",
-    aupair: "AuPair"
-  };
-
-  const applyFilters = (newFilters: FilterState) => {
-    // Si cambió el tipo, verificar si el destino seleccionado sigue siendo válido
-    if (newFilters.type !== filters.type && newFilters.destination !== "all") {
-      let availableDestinationsForType;
-      
-      if (newFilters.type === "all") {
-        availableDestinationsForType = [...new Set(programs.map(p => p.country))];
-      } else if (newFilters.type === "internship") {
-        availableDestinationsForType = internshipDestinations;
-      } else {
-        availableDestinationsForType = [...new Set(programs.filter(p => p.type === newFilters.type).map(p => p.country))];
-      }
-      
-      if (!availableDestinationsForType.includes(newFilters.destination)) {
-        newFilters.destination = "all";
-      }
+  const activeFiltersCount = Object.values(filters).filter((value) => {
+    if (Array.isArray(value)) {
+      return !(value[0] === 0 && value[1] === 10000);
     }
 
-    // Si cambió el destino para prácticas internacionales, resetear duración
-    if (newFilters.type === "internship" && newFilters.destination !== filters.destination) {
-      newFilters.duration = "all";
-    }
-    
-    setFilters(newFilters);
-    
-    let filtered = programs.filter(program => {
-      if (newFilters.type !== "all" && program.type !== newFilters.type) return false;
-      if (newFilters.destination !== "all" && program.country !== newFilters.destination) return false;
-      if (program.priceUSD < newFilters.priceRange[0] || program.priceUSD > newFilters.priceRange[1]) return false;
-      if (newFilters.duration !== "all") {
-        const durationWeeks = program.durationUnit === 'weeks' ? program.duration : program.duration * 4;
-        const durationMonths = program.durationUnit === 'months' ? program.duration : program.duration / 4;
-        
-        // Filtros especiales para prácticas internacionales
-        if (newFilters.type === "internship") {
-          if (newFilters.duration === "3-months" && durationMonths !== 3) return false;
-          if (newFilters.duration === "6-12-months" && (durationMonths < 6 || durationMonths > 12)) return false;
-          if (newFilters.duration === "6-18-months" && (durationMonths < 6 || durationMonths > 18)) return false;
-        } else {
-          // Filtros por defecto para otros tipos
-        if (newFilters.duration === "short" && durationWeeks > 8) return false;
-        if (newFilters.duration === "medium" && (durationWeeks <= 8 || durationWeeks > 16)) return false;
-        if (newFilters.duration === "long" && durationWeeks <= 16) return false;
-        }
-      }
-      if (newFilters.level !== "all" && program.level !== "all" && program.level !== newFilters.level) return false;
-      if (newFilters.visaRequired !== "all") {
-        const requiresVisa = newFilters.visaRequired === "required";
-        if (program.visaRequired !== requiresVisa) return false;
-      }
-      
-      return true;
-    });
-
-    onFiltersChange(filtered);
-  };
-
-  const clearFilters = () => {
-    const clearedFilters = {
-      type: "all",
-      destination: "all", 
-      priceRange: [0, 10000] as [number, number],
-      duration: "all",
-      level: "all",
-      visaRequired: "all"
-    };
-    applyFilters(clearedFilters);
-  };
-
-  const activeFiltersCount = Object.values(filters).filter(value => 
-    value !== "all" && !(Array.isArray(value) && value[0] === 0 && value[1] === 10000)
-  ).length;
+    return value !== "all";
+  }).length;
 
   return (
     <Card className="mb-6">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
-            Filtros
-            {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {activeFiltersCount}
-              </Badge>
-            )}
-          </CardTitle>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="flex items-center text-lg">
+              <Filter className="mr-2 h-5 w-5" />
+              Filtros
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {filteredPrograms.length} programa{filteredPrograms.length !== 1 ? "s" : ""} coinciden
+              con la seleccion actual.
+            </p>
+          </div>
+
           <div className="flex items-center space-x-2">
             {activeFiltersCount > 0 && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" />
+                <X className="mr-1 h-4 w-4" />
                 Limpiar
               </Button>
             )}
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setIsExpanded((isOpen) => !isOpen)}>
               {isExpanded ? "Ocultar" : "Mostrar"}
             </Button>
           </div>
@@ -214,59 +253,52 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
 
       {isExpanded && (
         <CardContent className="pt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Tipo de Programa */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div>
-              <Label className="text-sm font-medium">Tipo de Programa</Label>
-              <Select 
-                value={filters.type} 
-                onValueChange={(value) => applyFilters({...filters, type: value})}
-              >
+              <Label className="text-sm font-medium">Tipo de programa</Label>
+              <Select value={filters.type} onValueChange={(value: FilterState["type"]) => applyFilters({ type: value })}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue />
+                  <span>{filters.type === "all" ? "Todos los tipos" : typeLabels[filters.type]}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los tipos</SelectItem>
-                  {programTypes.map(type => (
+                  {programTypes.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {typeLabels[type as keyof typeof typeLabels]}
+                      {typeLabels[type]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Destino */}
             <div>
               <Label className="text-sm font-medium">Destino</Label>
-              <Select 
-                value={filters.destination} 
-                onValueChange={(value) => applyFilters({...filters, destination: value})}
-              >
+              <Select value={filters.destination} onValueChange={(value) => applyFilters({ destination: value })}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue />
+                  <span>{filters.destination === "all" ? "Todos los destinos" : filters.destination}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los destinos</SelectItem>
-                  {destinations.map(dest => (
-                    <SelectItem key={dest} value={dest}>{dest}</SelectItem>
+                  {destinations.map((destination) => (
+                    <SelectItem key={destination} value={destination}>
+                      {destination}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Duración */}
             <div>
-              <Label className="text-sm font-medium">Duración</Label>
-              <Select 
-                value={filters.duration} 
-                onValueChange={(value) => applyFilters({...filters, duration: value})}
-              >
+              <Label className="text-sm font-medium">Duracion</Label>
+              <Select value={filters.duration} onValueChange={(value) => applyFilters({ duration: value })}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue />
+                  <span>
+                    {durationOptions.find((option) => option.value === filters.duration)?.label ||
+                      "Cualquier duracion"}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {durationOptions.map(option => (
+                  {durationOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -275,15 +307,19 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
               </Select>
             </div>
 
-            {/* Nivel */}
             <div>
-              <Label className="text-sm font-medium">Nivel Requerido</Label>
-              <Select 
-                value={filters.level} 
-                onValueChange={(value) => applyFilters({...filters, level: value})}
-              >
+              <Label className="text-sm font-medium">Nivel requerido</Label>
+              <Select value={filters.level} onValueChange={(value: FilterState["level"]) => applyFilters({ level: value })}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue />
+                  <span>
+                    {filters.level === "all"
+                      ? "Cualquier nivel"
+                      : filters.level === "beginner"
+                        ? "Principiante"
+                        : filters.level === "intermediate"
+                          ? "Intermedio"
+                          : "Avanzado"}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Cualquier nivel</SelectItem>
@@ -294,15 +330,17 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
               </Select>
             </div>
 
-            {/* Visa */}
             <div>
-              <Label className="text-sm font-medium">Visa Requerida</Label>
-              <Select 
-                value={filters.visaRequired} 
-                onValueChange={(value) => applyFilters({...filters, visaRequired: value})}
-              >
+              <Label className="text-sm font-medium">Visa requerida</Label>
+              <Select value={filters.visaRequired} onValueChange={(value: FilterState["visaRequired"]) => applyFilters({ visaRequired: value })}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue />
+                  <span>
+                    {filters.visaRequired === "all"
+                      ? "No importa"
+                      : filters.visaRequired === "required"
+                        ? "Visa requerida"
+                        : "Sin visa"}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">No importa</SelectItem>
@@ -312,14 +350,13 @@ export function ProgramFilters({ programs, onFiltersChange }: ProgramFiltersProp
               </Select>
             </div>
 
-            {/* Rango de Precio */}
             <div>
               <Label className="text-sm font-medium">
                 Precio USD: ${filters.priceRange[0]} - ${filters.priceRange[1]}
               </Label>
               <Slider
                 value={filters.priceRange}
-                onValueChange={(value) => applyFilters({...filters, priceRange: value as [number, number]})}
+                onValueChange={(value) => applyFilters({ priceRange: value as [number, number] })}
                 max={10000}
                 min={0}
                 step={100}

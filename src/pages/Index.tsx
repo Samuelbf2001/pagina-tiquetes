@@ -3,7 +3,7 @@ import { Hero } from "@/components/Hero";
 
 const Index = () => {
   return (
-    <div className="h-screen bg-background overflow-hidden">
+    <div className="min-h-screen bg-background">
       <Header />
       <Hero />
     </div>

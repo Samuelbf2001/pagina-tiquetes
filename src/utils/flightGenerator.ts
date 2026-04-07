@@ -1,34 +1,34 @@
-import { Flight, Airport } from "@/types/flight";
+import type { Airport, Flight, FlightRouteType } from "@/types/flight";
+import { getCountryCodeFromAirport } from "@/utils/airportCountryMapping";
+import { buildScheduleFromDeparture, normalizeIsoDate } from "@/utils/dateUtils";
 
-// Lista completa de aeropuertos para generar vuelos
 const airports: Record<string, Airport> = {
-  // Colombia
-  BOG: { code: "BOG", name: "El Dorado International Airport", city: "Bogotá", country: "Colombia" },
-  
-  // Europa
+  BOG: { code: "BOG", name: "El Dorado International Airport", city: "Bogota", country: "Colombia" },
+  MDE: { code: "MDE", name: "Jose Maria Cordova", city: "Medellin", country: "Colombia" },
+  CLO: { code: "CLO", name: "Alfonso Bonilla Aragon", city: "Cali", country: "Colombia" },
+  CTG: { code: "CTG", name: "Rafael Nunez", city: "Cartagena", country: "Colombia" },
+  BAQ: { code: "BAQ", name: "Ernesto Cortissoz", city: "Barranquilla", country: "Colombia" },
+  BGA: { code: "BGA", name: "Palonegro", city: "Bucaramanga", country: "Colombia" },
+  PEI: { code: "PEI", name: "Matecana", city: "Pereira", country: "Colombia" },
+  SMR: { code: "SMR", name: "Simon Bolivar", city: "Santa Marta", country: "Colombia" },
+  CUC: { code: "CUC", name: "Camilo Daza", city: "Cucuta", country: "Colombia" },
+  VVC: { code: "VVC", name: "Vanguardia", city: "Villavicencio", country: "Colombia" },
   LHR: { code: "LHR", name: "Heathrow Airport", city: "Londres", country: "Reino Unido", terminal: "Terminal 5" },
-  CDG: { code: "CDG", name: "Charles de Gaulle Airport", city: "París", country: "Francia", terminal: "Terminal 2E" },
-  BCN: { code: "BCN", name: "Barcelona-El Prat Airport", city: "Barcelona", country: "España", terminal: "Terminal 1" },
-  MAD: { code: "MAD", name: "Adolfo Suárez Madrid-Barajas", city: "Madrid", country: "España", terminal: "Terminal 4" },
-  TXL: { code: "TXL", name: "Berlin Brandenburg Airport", city: "Berlín", country: "Alemania", terminal: "Terminal 1" },
-  AMS: { code: "AMS", name: "Amsterdam Airport Schiphol", city: "Amsterdam", country: "Países Bajos" },
-  
-  // América del Norte
+  CDG: { code: "CDG", name: "Charles de Gaulle Airport", city: "Paris", country: "Francia", terminal: "Terminal 2E" },
+  BCN: { code: "BCN", name: "Barcelona-El Prat Airport", city: "Barcelona", country: "Espana", terminal: "Terminal 1" },
+  MAD: { code: "MAD", name: "Adolfo Suarez Madrid-Barajas", city: "Madrid", country: "Espana", terminal: "Terminal 4" },
+  TXL: { code: "TXL", name: "Berlin Brandenburg Airport", city: "Berlin", country: "Alemania", terminal: "Terminal 1" },
+  AMS: { code: "AMS", name: "Amsterdam Airport Schiphol", city: "Amsterdam", country: "Paises Bajos" },
   MIA: { code: "MIA", name: "Miami International Airport", city: "Miami", country: "Estados Unidos", terminal: "Terminal J" },
-  YYZ: { code: "YYZ", name: "Toronto Pearson International", city: "Toronto", country: "Canadá", terminal: "Terminal 1" },
-  
-  // Asia
+  YYZ: { code: "YYZ", name: "Toronto Pearson International", city: "Toronto", country: "Canada", terminal: "Terminal 1" },
   PEK: { code: "PEK", name: "Beijing Capital International Airport", city: "Beijing", country: "China", terminal: "Terminal 3" },
-  NRT: { code: "NRT", name: "Narita International Airport", city: "Tokio", country: "Japón", terminal: "Terminal 1" },
-  ICN: { code: "ICN", name: "Incheon International Airport", city: "Seúl", country: "Corea del Sur", terminal: "Terminal 1" },
+  NRT: { code: "NRT", name: "Narita International Airport", city: "Tokio", country: "Japon", terminal: "Terminal 1" },
+  ICN: { code: "ICN", name: "Incheon International Airport", city: "Seul", country: "Corea del Sur", terminal: "Terminal 1" },
   SIN: { code: "SIN", name: "Singapore Changi Airport", city: "Singapur", country: "Singapur", terminal: "Terminal 3" },
-  DXB: { code: "DXB", name: "Dubai International Airport", city: "Dubái", country: "Emiratos Árabes Unidos", terminal: "Terminal 3" },
-  
-  // Centro América y Caribe
-  SJO: { code: "SJO", name: "Juan Santamaría International", city: "San José", country: "Costa Rica" }
+  DXB: { code: "DXB", name: "Dubai International Airport", city: "Dubai", country: "Emiratos Arabes Unidos", terminal: "Terminal 3" },
+  SJO: { code: "SJO", name: "Juan Santamaria International", city: "San Jose", country: "Costa Rica" },
 };
 
-// Aerolíneas para variar los vuelos
 const airlines = [
   { name: "Avianca", code: "AV", region: "americas" },
   { name: "LATAM", code: "LA", region: "americas" },
@@ -40,223 +40,385 @@ const airlines = [
   { name: "Air China", code: "CA", region: "asia" },
   { name: "Emirates", code: "EK", region: "middle-east" },
   { name: "Singapore Airlines", code: "SQ", region: "asia" },
-  { name: "Air Canada", code: "AC", region: "americas" }
+  { name: "Air Canada", code: "AC", region: "americas" },
 ];
 
-// Aeropuertos comunes para escalas según región
 const hubAirports = {
   europe: ["MAD", "CDG", "AMS", "LHR"],
   americas: ["MIA", "YYZ"],
   asia: ["DXB", "SIN"],
-  middleEast: ["DXB"]
-};
+  middleEast: ["DXB"],
+} as const;
 
-// Función para calcular distancia aproximada (simplificada)
+interface GenerateFlightsOptions {
+  departureDate?: string;
+  hasUsVisa?: boolean;
+}
+
 const calculateDistance = (origin: string, destination: string): number => {
   const distances: Record<string, number> = {
-    // Distancias base desde Colombia
-    "BOG-LHR": 8500, "BOG-CDG": 8400, "BOG-MAD": 8000, "BOG-BCN": 8200,
-    "BOG-TXL": 8800, "BOG-AMS": 8600, "BOG-MIA": 1600, "BOG-YYZ": 4200,
-    "BOG-PEK": 17800, "BOG-NRT": 18500, "BOG-ICN": 18200, "BOG-SIN": 19000,
-    "BOG-DXB": 13500, "BOG-SJO": 1200
+    "BOG-MDE": 215,
+    "BOG-CLO": 280,
+    "BOG-CTG": 660,
+    "BOG-BAQ": 700,
+    "BOG-BGA": 290,
+    "BOG-PEI": 180,
+    "BOG-SMR": 730,
+    "BOG-CUC": 410,
+    "BOG-VVC": 85,
+    "MDE-CLO": 310,
+    "MDE-CTG": 470,
+    "MDE-BAQ": 540,
+    "CLO-CTG": 770,
+    "CLO-BAQ": 845,
+    "CTG-BAQ": 100,
+    "BOG-LHR": 8500,
+    "BOG-CDG": 8400,
+    "BOG-MAD": 8000,
+    "BOG-BCN": 8200,
+    "BOG-TXL": 8800,
+    "BOG-AMS": 8600,
+    "BOG-MIA": 1600,
+    "BOG-YYZ": 4200,
+    "BOG-PEK": 17800,
+    "BOG-NRT": 18500,
+    "BOG-ICN": 18200,
+    "BOG-SIN": 19000,
+    "BOG-DXB": 13500,
+    "BOG-SJO": 1200,
   };
-  
+
   const key = `${origin}-${destination}`;
   const reverseKey = `${destination}-${origin}`;
-  
-  return distances[key] || distances[reverseKey] || 8000; // Default distance
-};
 
-// Función para determinar si una ruta tiene vuelos directos
-const hasDirectRoute = (origin: string, destination: string): boolean => {
-  // Lista expandida de rutas directas - incluye la mayoría de combinaciones principales
-  const directRoutes = new Set([
-    // Desde/hacia Colombia (BOG)
-    "BOG-MIA", "MIA-BOG", "BOG-MAD", "MAD-BOG", "BOG-CDG", "CDG-BOG", 
-    "BOG-AMS", "AMS-BOG", "BOG-YYZ", "YYZ-BOG", "BOG-SJO", "SJO-BOG",
-    "BOG-LHR", "LHR-BOG", "BOG-BCN", "BCN-BOG", "BOG-TXL", "TXL-BOG",
-    "BOG-PEK", "PEK-BOG", "BOG-NRT", "NRT-BOG", "BOG-ICN", "ICN-BOG",
-    "BOG-SIN", "SIN-BOG", "BOG-DXB", "DXB-BOG",
-    
-    // Rutas europeas directas
-    "LHR-CDG", "CDG-LHR", "LHR-MAD", "MAD-LHR", "LHR-BCN", "BCN-LHR",
-    "LHR-TXL", "TXL-LHR", "LHR-AMS", "AMS-LHR", "CDG-MAD", "MAD-CDG",
-    "CDG-BCN", "BCN-CDG", "CDG-TXL", "TXL-CDG", "CDG-AMS", "AMS-CDG",
-    "MAD-BCN", "BCN-MAD", "MAD-TXL", "TXL-MAD", "MAD-AMS", "AMS-MAD",
-    "BCN-TXL", "TXL-BCN", "BCN-AMS", "AMS-BCN", "TXL-AMS", "AMS-TXL",
-    
-    // Rutas transatlánticas
-    "LHR-MIA", "MIA-LHR", "LHR-YYZ", "YYZ-LHR", "CDG-MIA", "MIA-CDG",
-    "CDG-YYZ", "YYZ-CDG", "MAD-MIA", "MIA-MAD", "MAD-YYZ", "YYZ-MAD",
-    "AMS-MIA", "MIA-AMS", "AMS-YYZ", "YYZ-AMS", "BCN-MIA", "MIA-BCN",
-    
-    // Rutas asiáticas
-    "PEK-NRT", "NRT-PEK", "PEK-ICN", "ICN-PEK", "PEK-SIN", "SIN-PEK",
-    "PEK-DXB", "DXB-PEK", "NRT-ICN", "ICN-NRT", "NRT-SIN", "SIN-NRT",
-    "NRT-DXB", "DXB-NRT", "ICN-SIN", "SIN-ICN", "ICN-DXB", "DXB-ICN",
-    "SIN-DXB", "DXB-SIN",
-    
-    // Europa a Asia
-    "LHR-PEK", "PEK-LHR", "LHR-NRT", "NRT-LHR", "LHR-ICN", "ICN-LHR",
-    "LHR-SIN", "SIN-LHR", "LHR-DXB", "DXB-LHR", "CDG-PEK", "PEK-CDG",
-    "CDG-NRT", "NRT-CDG", "CDG-ICN", "ICN-CDG", "CDG-SIN", "SIN-CDG",
-    "CDG-DXB", "DXB-CDG", "MAD-DXB", "DXB-MAD", "AMS-DXB", "DXB-AMS",
-    "AMS-PEK", "PEK-AMS", "AMS-NRT", "NRT-AMS", "AMS-SIN", "SIN-AMS",
-    
-    // América del Norte a Asia
-    "MIA-PEK", "PEK-MIA", "MIA-NRT", "NRT-MIA", "MIA-ICN", "ICN-MIA",
-    "MIA-SIN", "SIN-MIA", "MIA-DXB", "DXB-MIA", "YYZ-PEK", "PEK-YYZ",
-    "YYZ-NRT", "NRT-YYZ", "YYZ-ICN", "ICN-YYZ", "YYZ-SIN", "SIN-YYZ",
-    "YYZ-DXB", "DXB-YYZ",
-    
-    // Centroamérica
-    "SJO-MIA", "MIA-SJO", "SJO-YYZ", "YYZ-SJO", "SJO-MAD", "MAD-SJO",
-    "SJO-CDG", "CDG-SJO", "SJO-AMS", "AMS-SJO"
-  ]);
-  
-  const route1 = `${origin}-${destination}`;
-  const route2 = `${destination}-${origin}`;
-  
-  return directRoutes.has(route1) || directRoutes.has(route2);
-};
-
-// Función para calcular precios basados en distancia y tipo
-const calculatePrice = (distance: number, routeType: 'direct' | 'connecting'): { public: number, agency: number } => {
-  let basePrice = Math.round((distance / 10) + 300); // Precio base por distancia
-  
-  if (routeType === 'connecting') {
-    basePrice *= 0.8; // 20% más barato para vuelos con escalas
+  if (getCountryCodeFromAirport(origin) === "CO" && getCountryCodeFromAirport(destination) === "CO") {
+    return distances[key] || distances[reverseKey] || 350;
   }
-  
-  const publicPrice = Math.round(basePrice * 1.4); // Precio público 40% más caro
-  const agencyPrice = basePrice; // Precio B2B
-  
-  return { public: publicPrice, agency: agencyPrice };
+
+  return distances[key] || distances[reverseKey] || 8000;
 };
 
-// Función para generar horarios realistas
-const generateSchedule = (distance: number, routeType: 'direct' | 'connecting') => {
-  const flightDuration = routeType === 'direct' ? 
-    Math.round(distance / 800) : // 800 km/h promedio
-    Math.round(distance / 700); // Más lento por escalas
-  
-  const layoverTime = routeType === 'connecting' ? 
-    Math.floor(Math.random() * 4) + 1 : 0; // 1-5 horas de escalas
-  
-  const totalHours = flightDuration + layoverTime;
-  const totalMinutes = Math.floor(Math.random() * 60);
-  
+const hasDirectRoute = (origin: string, destination: string): boolean => {
+  if (getCountryCodeFromAirport(origin) === "CO" && getCountryCodeFromAirport(destination) === "CO") {
+    return true;
+  }
+
+  const directRoutes = new Set([
+    "BOG-MIA",
+    "MIA-BOG",
+    "BOG-MAD",
+    "MAD-BOG",
+    "BOG-CDG",
+    "CDG-BOG",
+    "BOG-AMS",
+    "AMS-BOG",
+    "BOG-YYZ",
+    "YYZ-BOG",
+    "BOG-SJO",
+    "SJO-BOG",
+    "BOG-LHR",
+    "LHR-BOG",
+    "BOG-BCN",
+    "BCN-BOG",
+    "BOG-TXL",
+    "TXL-BOG",
+    "BOG-PEK",
+    "PEK-BOG",
+    "BOG-NRT",
+    "NRT-BOG",
+    "BOG-ICN",
+    "ICN-BOG",
+    "BOG-SIN",
+    "SIN-BOG",
+    "BOG-DXB",
+    "DXB-BOG",
+    "LHR-CDG",
+    "CDG-LHR",
+    "LHR-MAD",
+    "MAD-LHR",
+    "LHR-BCN",
+    "BCN-LHR",
+    "LHR-TXL",
+    "TXL-LHR",
+    "LHR-AMS",
+    "AMS-LHR",
+    "CDG-MAD",
+    "MAD-CDG",
+    "CDG-BCN",
+    "BCN-CDG",
+    "CDG-TXL",
+    "TXL-CDG",
+    "CDG-AMS",
+    "AMS-CDG",
+    "MAD-BCN",
+    "BCN-MAD",
+    "MAD-TXL",
+    "TXL-MAD",
+    "MAD-AMS",
+    "AMS-MAD",
+    "BCN-TXL",
+    "TXL-BCN",
+    "BCN-AMS",
+    "AMS-BCN",
+    "TXL-AMS",
+    "AMS-TXL",
+    "LHR-MIA",
+    "MIA-LHR",
+    "LHR-YYZ",
+    "YYZ-LHR",
+    "CDG-MIA",
+    "MIA-CDG",
+    "CDG-YYZ",
+    "YYZ-CDG",
+    "MAD-MIA",
+    "MIA-MAD",
+    "MAD-YYZ",
+    "YYZ-MAD",
+    "AMS-MIA",
+    "MIA-AMS",
+    "AMS-YYZ",
+    "YYZ-AMS",
+    "BCN-MIA",
+    "MIA-BCN",
+    "PEK-NRT",
+    "NRT-PEK",
+    "PEK-ICN",
+    "ICN-PEK",
+    "PEK-SIN",
+    "SIN-PEK",
+    "PEK-DXB",
+    "DXB-PEK",
+    "NRT-ICN",
+    "ICN-NRT",
+    "NRT-SIN",
+    "SIN-NRT",
+    "NRT-DXB",
+    "DXB-NRT",
+    "ICN-SIN",
+    "SIN-ICN",
+    "ICN-DXB",
+    "DXB-ICN",
+    "SIN-DXB",
+    "DXB-SIN",
+    "LHR-PEK",
+    "PEK-LHR",
+    "LHR-NRT",
+    "NRT-LHR",
+    "LHR-ICN",
+    "ICN-LHR",
+    "LHR-SIN",
+    "SIN-LHR",
+    "LHR-DXB",
+    "DXB-LHR",
+    "CDG-PEK",
+    "PEK-CDG",
+    "CDG-NRT",
+    "NRT-CDG",
+    "CDG-ICN",
+    "ICN-CDG",
+    "CDG-SIN",
+    "SIN-CDG",
+    "CDG-DXB",
+    "DXB-CDG",
+    "MAD-DXB",
+    "DXB-MAD",
+    "AMS-DXB",
+    "DXB-AMS",
+    "AMS-PEK",
+    "PEK-AMS",
+    "AMS-NRT",
+    "NRT-AMS",
+    "AMS-SIN",
+    "SIN-AMS",
+    "MIA-PEK",
+    "PEK-MIA",
+    "MIA-NRT",
+    "NRT-MIA",
+    "MIA-ICN",
+    "ICN-MIA",
+    "MIA-SIN",
+    "SIN-MIA",
+    "MIA-DXB",
+    "DXB-MIA",
+    "YYZ-PEK",
+    "PEK-YYZ",
+    "YYZ-NRT",
+    "NRT-YYZ",
+    "YYZ-ICN",
+    "ICN-YYZ",
+    "YYZ-SIN",
+    "SIN-YYZ",
+    "YYZ-DXB",
+    "DXB-YYZ",
+    "SJO-MIA",
+    "MIA-SJO",
+    "SJO-YYZ",
+    "YYZ-SJO",
+    "SJO-MAD",
+    "MAD-SJO",
+    "SJO-CDG",
+    "CDG-SJO",
+    "SJO-AMS",
+    "AMS-SJO",
+  ]);
+
+  return directRoutes.has(`${origin}-${destination}`) || directRoutes.has(`${destination}-${origin}`);
+};
+
+const calculatePrice = (
+  distance: number,
+  routeType: Extract<FlightRouteType, "direct" | "connecting">
+) => {
+  let basePrice = Math.round(distance / 10 + 300);
+
+  if (routeType === "connecting") {
+    basePrice *= 0.8;
+  }
+
   return {
-    flying: `${flightDuration}h ${Math.floor(Math.random() * 60)}m`,
-    total: `${totalHours}h ${totalMinutes}m`
+    public: Math.round(basePrice * 1.4),
+    agency: basePrice,
   };
 };
 
-// Función para seleccionar aerolínea apropiada
+const generateSchedule = (
+  distance: number,
+  routeType: Extract<FlightRouteType, "direct" | "connecting">
+) => {
+  const flightDurationHours =
+    routeType === "direct" ? Math.round(distance / 800) : Math.round(distance / 700);
+  const layoverHours = routeType === "connecting" ? Math.floor(Math.random() * 4) + 1 : 0;
+
+  return {
+    flying: `${flightDurationHours}h ${Math.floor(Math.random() * 60)}m`,
+    total: `${flightDurationHours + layoverHours}h ${Math.floor(Math.random() * 60)}m`,
+  };
+};
+
 const selectAirline = (origin: string, destination: string) => {
-  // Preferir aerolíneas regionales apropiadas
-  if (origin === 'BOG' || destination === 'BOG') {
-    const americasAirlines = airlines.filter(a => a.region === 'americas');
+  if (origin === "BOG" || destination === "BOG") {
+    const americasAirlines = airlines.filter((airline) => airline.region === "americas");
     if (Math.random() > 0.3) {
       return americasAirlines[Math.floor(Math.random() * americasAirlines.length)];
     }
   }
-  
+
   return airlines[Math.floor(Math.random() * airlines.length)];
 };
 
-// Función para generar escalas apropiadas
-const generateStops = (origin: string, destination: string): Airport[] => {
-  if (origin === destination) return [];
-  
-  const possibleHubs = [...hubAirports.europe, ...hubAirports.americas, ...hubAirports.asia];
-  const numStops = Math.random() > 0.7 ? 2 : 1; // 70% chance de 1 escala, 30% de 2
-  
-  const stops: Airport[] = [];
+const shouldAllowHub = (hubCode: string, hasUsVisa: boolean) =>
+  hasUsVisa || getCountryCodeFromAirport(hubCode) !== "US";
+
+const generateStops = (origin: string, destination: string, hasUsVisa: boolean): Airport[] => {
+  if (origin === destination) {
+    return [];
+  }
+
+  const possibleHubs = [
+    ...hubAirports.europe,
+    ...hubAirports.americas,
+    ...hubAirports.asia,
+  ].filter((hubCode) => shouldAllowHub(hubCode, hasUsVisa));
+
+  const numberOfStops = Math.random() > 0.7 ? 2 : 1;
   const usedHubs = new Set([origin, destination]);
-  
-  for (let i = 0; i < numStops; i++) {
-    const availableHubs = possibleHubs.filter(hub => !usedHubs.has(hub));
-    if (availableHubs.length > 0) {
-      const hub = availableHubs[Math.floor(Math.random() * availableHubs.length)];
-      if (airports[hub]) {
-        stops.push(airports[hub]);
-        usedHubs.add(hub);
-      }
+  const stops: Airport[] = [];
+
+  for (let index = 0; index < numberOfStops; index += 1) {
+    const availableHubs = possibleHubs.filter((hubCode) => !usedHubs.has(hubCode));
+    if (availableHubs.length === 0) {
+      break;
+    }
+
+    const nextHub = availableHubs[Math.floor(Math.random() * availableHubs.length)];
+    const airport = airports[nextHub];
+
+    if (airport) {
+      stops.push(airport);
+      usedHubs.add(nextHub);
     }
   }
-  
+
   return stops;
 };
 
-// Función principal para generar vuelos
-export const generateFlights = (origin: string, destination: string, routeType?: 'direct' | 'connecting' | 'both'): Flight[] => {
+export const generateFlights = (
+  origin: string,
+  destination: string,
+  routeType?: FlightRouteType,
+  options: GenerateFlightsOptions = {}
+): Flight[] => {
   if (!origin || !destination || origin === destination) {
     return [];
   }
-  
+
   const originAirport = airports[origin];
   const destinationAirport = airports[destination];
-  
+
   if (!originAirport || !destinationAirport) {
     return [];
   }
-  
+
   const flights: Flight[] = [];
   const distance = calculateDistance(origin, destination);
-  const hasDirect = hasDirectRoute(origin, destination);
-  
-  // Generar vuelos directos
-  if ((routeType === 'direct' || routeType === 'both' || !routeType) && hasDirect) {
-    const directFlights = generateFlightVariations(originAirport, destinationAirport, 'direct', distance);
-    flights.push(...directFlights);
+  const routeHasDirectFlights = hasDirectRoute(origin, destination);
+  const departureDate = normalizeIsoDate(options.departureDate);
+  const hasUsVisa = options.hasUsVisa ?? true;
+
+  if ((routeType === "direct" || routeType === "both" || !routeType) && routeHasDirectFlights) {
+    flights.push(
+      ...generateFlightVariations(originAirport, destinationAirport, "direct", distance, departureDate, hasUsVisa)
+    );
   }
-  
-  // Generar vuelos con escalas (siempre disponibles para rutas internacionales)
-  if (routeType === 'connecting' || routeType === 'both' || !routeType) {
-    const connectingFlights = generateFlightVariations(originAirport, destinationAirport, 'connecting', distance);
-    flights.push(...connectingFlights);
+
+  if (routeType === "connecting" || routeType === "both" || !routeType) {
+    flights.push(
+      ...generateFlightVariations(
+        originAirport,
+        destinationAirport,
+        "connecting",
+        distance,
+        departureDate,
+        hasUsVisa
+      )
+    );
   }
-  
-  // Si no hay vuelos directos pero se solicitaron, aún así generar algunos con escalas
-  if ((routeType === 'direct' || routeType === 'both' || !routeType) && !hasDirect && flights.length === 0) {
-    console.log(`No hay vuelos directos para ${origin}-${destination}, generando con escalas como alternativa`);
-    const alternativeFlights = generateFlightVariations(originAirport, destinationAirport, 'connecting', distance);
-    flights.push(...alternativeFlights);
-  }
-  
+
   return flights;
 };
 
-// Función para generar variaciones de vuelos
-const generateFlightVariations = (origin: Airport, destination: Airport, routeType: 'direct' | 'connecting', distance: number): Flight[] => {
+const generateFlightVariations = (
+  origin: Airport,
+  destination: Airport,
+  routeType: Extract<FlightRouteType, "direct" | "connecting">,
+  distance: number,
+  departureDate: string,
+  hasUsVisa: boolean
+): Flight[] => {
   const flights: Flight[] = [];
-  const numFlights = routeType === 'direct' ? 
-    Math.floor(Math.random() * 2) + 2 : // 2-3 vuelos directos
-    Math.floor(Math.random() * 3) + 2;   // 2-4 vuelos con escalas
-  
-  for (let i = 0; i < numFlights; i++) {
+  const numberOfFlights = routeType === "direct" ? Math.floor(Math.random() * 2) + 2 : Math.floor(Math.random() * 3) + 2;
+
+  for (let index = 0; index < numberOfFlights; index += 1) {
     const airline = selectAirline(origin.code, destination.code);
     const prices = calculatePrice(distance, routeType);
-    const schedule = generateSchedule(distance, routeType);
-    const stops = routeType === 'connecting' ? generateStops(origin.code, destination.code) : [];
-    
-    // Variar horarios para dar más opciones
-    const departureHour = routeType === 'direct' ? 
-      [6, 10, 14, 18, 22][i % 5] : // Horarios más distribuidos para directos
-      [8, 12, 16, 20][i % 4];      // Horarios para vuelos con escalas
-    
-    const departureMinutes = [0, 15, 30, 45][i % 4];
-    
-    // Calcular hora de llegada basada en duración
-    const totalMinutes = parseInt(schedule.total.split('h')[0]) * 60 + 
-                        parseInt(schedule.total.split('h')[1].split('m')[0]);
-    const arrivalTime = new Date();
-    arrivalTime.setHours(departureHour, departureMinutes);
-    arrivalTime.setMinutes(arrivalTime.getMinutes() + totalMinutes);
-    
-    const flight: Flight = {
-      id: `generated_${origin.code}_${destination.code}_${routeType}_${i}_${Date.now()}`,
+    const duration = generateSchedule(distance, routeType);
+    const stops = routeType === "connecting" ? generateStops(origin.code, destination.code, hasUsVisa) : [];
+    const departureHour = routeType === "direct" ? [6, 10, 14, 18, 22][index % 5] : [8, 12, 16, 20][index % 4];
+    const departureMinutes = [0, 15, 30, 45][index % 4];
+    const nextDepartureDate = new Date(`${departureDate}T00:00:00`);
+    nextDepartureDate.setDate(nextDepartureDate.getDate() + index);
+    const currentDepartureDate = normalizeIsoDate(nextDepartureDate.toISOString().split("T")[0]);
+    const departureTime = `${String(departureHour).padStart(2, "0")}:${String(departureMinutes).padStart(2, "0")}`;
+    const schedule = buildScheduleFromDeparture({
+      departureDate: currentDepartureDate,
+      departureTime,
+      totalDuration: duration.total,
+      departureTimezone: "COT",
+      arrivalTimezone: getDestinationTimezone(destination.code),
+    });
+
+    flights.push({
+      id: `generated_${origin.code}_${destination.code}_${routeType}_${currentDepartureDate}_${index}`,
       airline: airline.name,
       airlineCode: airline.code,
       flightNumber: `${airline.code}${Math.floor(Math.random() * 900) + 100}`,
@@ -264,26 +426,18 @@ const generateFlightVariations = (origin: Airport, destination: Airport, routeTy
         origin,
         destination,
         stops,
-        duration: schedule,
-        distance
+        duration,
+        distance,
       },
       schedule: {
-        departure: {
-          date: "2024-08-20", // Fecha placeholder
-          time: `${String(departureHour).padStart(2, '0')}:${String(departureMinutes).padStart(2, '0')}`,
-          timezone: "COT"
-        },
-        arrival: {
-          date: arrivalTime.getDate() !== 20 ? "2024-08-21" : "2024-08-20", // Considerar cambio de día
-          time: `${String(arrivalTime.getHours()).padStart(2, '0')}:${String(arrivalTime.getMinutes()).padStart(2, '0')}`,
-          timezone: getDestinationTimezone(destination.code)
-        },
-        layovers: stops.map((stop, index) => ({
+        departure: schedule.departure,
+        arrival: schedule.arrival,
+        layovers: stops.map((stop, stopIndex) => ({
           airport: stop,
-          duration: generateLayoverDuration(index, stops.length)
-        }))
+          duration: generateLayoverDuration(stopIndex),
+        })),
       },
-      aircraft: getRealisticAircraft(distance, routeType),
+      aircraft: getRealisticAircraft(distance),
       pricing: {
         currency: "USD",
         publicPrice: prices.public,
@@ -296,82 +450,88 @@ const generateFlightVariations = (origin: Airport, destination: Airport, routeTy
           baseFare: prices.agency,
           taxes: [
             { code: "YQ", name: "Fuel Surcharge", amount: Math.round(prices.agency * 0.1) },
-            { code: "TX", name: "Airport Tax", amount: Math.round(prices.agency * 0.05) }
+            { code: "TX", name: "Airport Tax", amount: Math.round(prices.agency * 0.05) },
           ],
           fees: [
             { type: "booking", description: "Booking Fee", amount: Math.round(prices.agency * 0.03) },
-            { type: "service", description: "Service Fee", amount: Math.round(prices.agency * 0.02) }
-          ]
-        }
+            { type: "service", description: "Service Fee", amount: Math.round(prices.agency * 0.02) },
+          ],
+        },
       },
       availability: {
-        seats: Math.floor(Math.random() * 15) + 5, // 5-19 asientos
+        seats: Math.floor(Math.random() * 15) + 5,
         cabinClass: "economy",
         bookingClass: ["Y", "M", "B", "T", "K"][Math.floor(Math.random() * 5)],
-        refundable: Math.random() > 0.4, // 60% chance de ser reembolsable
-        changeable: Math.random() > 0.2, // 80% chance de ser cambiable
-        lastUpdate: new Date().toISOString()
+        refundable: Math.random() > 0.4,
+        changeable: Math.random() > 0.2,
+        lastUpdate: new Date().toISOString(),
       },
       services: {
-        meals: routeType === 'direct' ? 
-          ["Cena", "Desayuno"].slice(0, Math.floor(Math.random() * 2) + 1) :
-          ["Desayuno", "Almuerzo", "Cena"].slice(0, Math.floor(Math.random() * 2) + 2),
-        entertainment: true, // Siempre incluir para vuelos internacionales
-        wifi: Math.random() > 0.3, // 70% chance
-        powerOutlets: Math.random() > 0.4, // 60% chance
-        extraLegroom: Math.random() > 0.8 // 20% chance
+        meals:
+          routeType === "direct"
+            ? ["Cena", "Desayuno"].slice(0, Math.floor(Math.random() * 2) + 1)
+            : ["Desayuno", "Almuerzo", "Cena"].slice(0, Math.floor(Math.random() * 2) + 2),
+        entertainment: true,
+        wifi: Math.random() > 0.3,
+        powerOutlets: Math.random() > 0.4,
+        extraLegroom: Math.random() > 0.8,
       },
       baggage: {
         carry: { included: true, weight: "10kg", dimensions: "56x45x25cm" },
-        checked: { included: true, weight: "23kg" }
+        checked: { included: true, weight: "23kg" },
       },
       restrictions: {
         minStay: Math.floor(Math.random() * 7) + 1,
         maxStay: Math.floor(Math.random() * 300) + 60,
         advancePurchase: Math.floor(Math.random() * 21) + 7,
         cancellationPolicy: Math.random() > 0.5 ? "Reembolsable con penalidad" : "No reembolsable",
-        changePolicy: `Cambios: $${Math.floor(Math.random() * 200) + 50} USD + diferencia tarifaria`
-      }
-    };
-    
-    flights.push(flight);
+        changePolicy: `Cambios: $${Math.floor(Math.random() * 200) + 50} USD + diferencia tarifaria`,
+      },
+    });
   }
-  
+
   return flights;
 };
 
-// Funciones helper adicionales
-const generateLayoverDuration = (index: number, totalStops: number): string => {
-  // Primera escala: más tiempo, última escala: menos tiempo
-  const baseMinutes = index === 0 ? 120 : 90; // 2h primera, 1.5h otras
-  const variation = Math.floor(Math.random() * 60) - 30; // ±30 min
-  const totalMinutes = Math.max(60, baseMinutes + variation); // Mínimo 1h
-  
+const generateLayoverDuration = (index: number) => {
+  const baseMinutes = index === 0 ? 120 : 90;
+  const variation = Math.floor(Math.random() * 60) - 30;
+  const totalMinutes = Math.max(60, baseMinutes + variation);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  
-  return `${hours}h ${minutes > 0 ? minutes + 'm' : ''}`.trim();
+
+  return `${hours}h ${minutes > 0 ? `${minutes}m` : ""}`.trim();
 };
 
-const getRealisticAircraft = (distance: number, routeType: 'direct' | 'connecting'): string => {
+const getRealisticAircraft = (distance: number) => {
   const longHaulAircraft = ["Boeing 787-9", "Airbus A350-900", "Boeing 777-300ER"];
   const mediumHaulAircraft = ["Airbus A330-200", "Boeing 767-300", "Airbus A321"];
-  
+
   if (distance > 8000) {
     return longHaulAircraft[Math.floor(Math.random() * longHaulAircraft.length)];
-  } else {
-    return mediumHaulAircraft[Math.floor(Math.random() * mediumHaulAircraft.length)];
   }
+
+  return mediumHaulAircraft[Math.floor(Math.random() * mediumHaulAircraft.length)];
 };
 
-const getDestinationTimezone = (airportCode: string): string => {
+const getDestinationTimezone = (airportCode: string) => {
   const timezones: Record<string, string> = {
-    'BOG': 'COT',
-    'LHR': 'GMT', 'CDG': 'CET', 'MAD': 'CET', 'BCN': 'CET', 'TXL': 'CET', 'AMS': 'CET',
-    'MIA': 'EST', 'YYZ': 'EST',
-    'PEK': 'CST', 'NRT': 'JST', 'ICN': 'KST', 'SIN': 'SGT', 'DXB': 'GST',
-    'SJO': 'CST'
+    BOG: "COT",
+    LHR: "GMT",
+    CDG: "CET",
+    MAD: "CET",
+    BCN: "CET",
+    TXL: "CET",
+    AMS: "CET",
+    MIA: "EST",
+    YYZ: "EST",
+    PEK: "CST",
+    NRT: "JST",
+    ICN: "KST",
+    SIN: "SGT",
+    DXB: "GST",
+    SJO: "CST",
   };
-  
-  return timezones[airportCode] || 'UTC';
-}; 
+
+  return timezones[airportCode] || "UTC";
+};

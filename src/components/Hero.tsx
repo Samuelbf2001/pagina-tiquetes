@@ -1,73 +1,72 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plane, GraduationCap, Globe2, Star } from "lucide-react";
+import { GraduationCap, Plane, Star } from "lucide-react";
 import { Link } from "react-router-dom";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-image.jpg";
 
 export function Hero() {
   return (
-    <section className="relative h-[calc(100vh-4rem)] min-h-[500px] flex items-center justify-center overflow-hidden">
-      {/* Background Image */}
-      <div 
+    <section className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden py-16">
+      <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${heroImage})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-primary/80 via-primary/60 to-transparent" />
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 text-center text-white">
+      <div className="relative z-10 container mx-auto px-4 py-10 text-center text-white">
         <div className="animate-fade-in">
-          <Badge variant="secondary" className="mb-6 bg-white/20 text-white border-white/30">
-            <Star className="h-4 w-4 mr-2" />
-            Plataforma B2B para Agencias
+          <Badge variant="secondary" className="mb-6 border-white/30 bg-white/20 text-white">
+            <Star className="mr-2 h-4 w-4" />
+            Plataforma B2B para agencias
           </Badge>
-          
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+
+          <h1 className="mb-6 text-4xl font-bold leading-tight md:text-6xl">
             Conecta estudiantes con
             <span className="block bg-gradient-to-r from-accent to-secondary bg-clip-text text-transparent">
               experiencias internacionales
             </span>
           </h1>
-          
-          <p className="text-xl md:text-2xl mb-8 text-white/90 max-w-3xl mx-auto leading-relaxed">
-            Accede a tarifas negociadas de vuelos y el catálogo más completo de programas educativos internacionales
+
+          <p className="mx-auto mb-8 max-w-3xl text-xl leading-relaxed text-white/90 md:text-2xl">
+            Accede a tarifas negociadas de vuelos y a un catalogo de programas
+            internacionales pensado para agencias educativas.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+          <div className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link to="/programas">
-              <Button 
-                size="lg" 
-                className="bg-white text-primary hover:bg-white/90 shadow-glow transition-all duration-300 px-8 py-3"
+              <Button
+                size="lg"
+                className="bg-white px-8 py-3 text-primary transition-all duration-300 hover:bg-white/90 hover:shadow-glow"
               >
-                <GraduationCap className="h-5 w-5 mr-2" />
-                Ver Programas
+                <GraduationCap className="mr-2 h-5 w-5" />
+                Ver programas
               </Button>
             </Link>
             <Link to="/flights">
-              <Button 
+              <Button
                 size="lg"
-                className="bg-white text-primary hover:bg-white/90 shadow-glow transition-all duration-300 px-8 py-3"
+                className="bg-white px-8 py-3 text-primary transition-all duration-300 hover:bg-white/90 hover:shadow-glow"
               >
-                <Plane className="h-5 w-5 mr-2" />
-                Buscar Vuelos
+                <Plane className="mr-2 h-5 w-5" />
+                Buscar vuelos
               </Button>
             </Link>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
+          <div className="mx-auto grid max-w-2xl grid-cols-1 gap-8 md:grid-cols-3">
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2">500+</div>
-              <div className="text-white/80">Programas Disponibles</div>
+              <div className="mb-2 text-3xl font-bold">500+</div>
+              <div className="text-white/80">Programas disponibles</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2">50+</div>
-              <div className="text-white/80">Destinos Internacionales</div>
+              <div className="mb-2 text-3xl font-bold">50+</div>
+              <div className="text-white/80">Destinos internacionales</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2">100%</div>
-              <div className="text-white/80">Tarifas Negociadas</div>
+              <div className="mb-2 text-3xl font-bold">100%</div>
+              <div className="text-white/80">Tarifas negociadas</div>
             </div>
           </div>
         </div>

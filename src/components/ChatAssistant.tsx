@@ -1,396 +1,420 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flight } from '@/types/flight';
-import { 
-  MessageCircle, 
-  Send, 
-  Bot, 
-  User, 
-  Plane, 
-  MapPin, 
+import { useEffect, useRef, useState } from "react";
+import {
+  Bot,
   Calendar,
   DollarSign,
-  Loader2
-} from 'lucide-react';
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Plane,
+  Send,
+  User,
+} from "lucide-react";
 
-// Interfaz para los mensajes del chat
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { searchFlightsWithMinimumResults } from "@/data/mockFlights";
+import type { Flight, FlightSearchCriteria } from "@/types/flight";
+import { normalizeIsoDate } from "@/utils/dateUtils";
+
 interface ChatMessage {
   id: string;
-  type: 'user' | 'assistant';
+  type: "user" | "assistant";
   content: string;
   timestamp: Date;
   flights?: Flight[];
 }
 
-// Props del componente ChatAssistant
 interface ChatAssistantProps {
   onFlightsDetected?: (flights: Flight[]) => void;
   className?: string;
 }
 
-/**
- * Componente ChatAssistant - Asistente de vuelos con IA
- * Diseñado para ser escalable y soportar +1000 clientes concurrentes
- * 
- * Características:
- * - Chat interactivo con procesamiento de lenguaje natural
- * - Búsqueda inteligente de vuelos
- * - Optimización para múltiples usuarios
- * - Interfaz responsive y accesible
- */
-const ChatAssistant: React.FC<ChatAssistantProps> = ({ 
-  onFlightsDetected,
-  className = ""
-}) => {
-  // Estados del componente
+type ChatIntent = "flight_search" | "follow_up" | "general";
+type ChatSearchMode = "none" | "reference" | "exact";
+
+interface GeminiChatAction {
+  reply: string;
+  intent: ChatIntent;
+  showFlightOptions: boolean;
+  searchMode: ChatSearchMode;
+  missingFields: string[];
+  search: {
+    origin: string | null;
+    destination: string | null;
+    destinationLabel: string | null;
+    destinationCountry: string | null;
+    simulationDestination: string | null;
+    simulationOrigin: string | null;
+    departureDate: string | null;
+    returnDate: string | null;
+    tripType: string;
+    cabinClass: string;
+    adults: number;
+    children: number;
+    infants: number;
+    hasUsVisa: boolean | null;
+  };
+}
+
+interface GeminiChatApiResponse {
+  output?: string;
+  model?: string;
+  chatAction?: GeminiChatAction | null;
+}
+
+const supportedAirportCodes = new Set([
+  "BOG",
+  "MDE",
+  "CLO",
+  "CTG",
+  "BAQ",
+  "BGA",
+  "PEI",
+  "SMR",
+  "CUC",
+  "VVC",
+  "MIA",
+  "MAD",
+  "CDG",
+  "LHR",
+  "AMS",
+  "PEK",
+  "NRT",
+  "ICN",
+  "DXB",
+  "SJO",
+]);
+
+const supportedCabinClasses = new Set(["economy", "premium-economy", "business", "first"]);
+const supportedTripTypes = new Set(["one-way", "round-trip"]);
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isGeminiChatAction = (value: unknown): value is GeminiChatAction => {
+  if (!isObject(value) || !isObject(value.search)) {
+    return false;
+  }
+
+  return (
+    typeof value.reply === "string" &&
+    typeof value.intent === "string" &&
+    typeof value.showFlightOptions === "boolean" &&
+    typeof value.searchMode === "string" &&
+    Array.isArray(value.missingFields)
+  );
+};
+
+const parseChatActionFromOutput = (output?: string) => {
+  if (typeof output !== "string" || output.trim() === "") {
+    return null;
+  }
+
+  try {
+    const parsedOutput = JSON.parse(output);
+    return isGeminiChatAction(parsedOutput) ? parsedOutput : null;
+  } catch {
+    return null;
+  }
+};
+
+const getSupportedAirportCode = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalizedCode = value.trim().toUpperCase();
+  return supportedAirportCodes.has(normalizedCode) ? normalizedCode : null;
+};
+
+const normalizeTripType = (value: unknown): FlightSearchCriteria["tripType"] =>
+  typeof value === "string" && supportedTripTypes.has(value)
+    ? (value as FlightSearchCriteria["tripType"])
+    : "one-way";
+
+const normalizeCabinClass = (value: unknown): FlightSearchCriteria["cabinClass"] =>
+  typeof value === "string" && supportedCabinClasses.has(value)
+    ? (value as FlightSearchCriteria["cabinClass"])
+    : "economy";
+
+const normalizePassengerCount = (value: unknown, fallback: number) =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
+
+const buildSearchCriteriaFromAction = (
+  action: GeminiChatAction | null | undefined
+): FlightSearchCriteria | null => {
+  if (!action?.showFlightOptions || !isObject(action.search)) {
+    return null;
+  }
+
+  const destination =
+    getSupportedAirportCode(action.search.simulationDestination) ||
+    getSupportedAirportCode(action.search.destination);
+  if (!destination) {
+    return null;
+  }
+
+  const tripType = normalizeTripType(action.search.tripType);
+  const departureDate = normalizeIsoDate(
+    typeof action.search.departureDate === "string" ? action.search.departureDate : undefined,
+    21
+  );
+  const returnDate =
+    tripType === "round-trip"
+      ? normalizeIsoDate(
+          typeof action.search.returnDate === "string" ? action.search.returnDate : undefined,
+          30
+        )
+      : undefined;
+
+  return {
+    origin:
+      getSupportedAirportCode(action.search.simulationOrigin) ||
+      getSupportedAirportCode(action.search.origin) ||
+      "BOG",
+    destination,
+    departureDate,
+    returnDate,
+    passengers: {
+      adults: Math.max(1, normalizePassengerCount(action.search.adults, 1)),
+      children: normalizePassengerCount(action.search.children, 0),
+      infants: normalizePassengerCount(action.search.infants, 0),
+    },
+    cabinClass: normalizeCabinClass(action.search.cabinClass),
+    tripType,
+    flexibility: "exact",
+    hasUsVisa: typeof action.search.hasUsVisa === "boolean" ? action.search.hasUsVisa : true,
+  };
+};
+
+const getDemoDestinationCode = (action: GeminiChatAction) => {
+  if (typeof action.search.destination === "string" && /^[A-Za-z]{3}$/.test(action.search.destination)) {
+    return action.search.destination.toUpperCase();
+  }
+
+  const fallbackCode =
+    getSupportedAirportCode(action.search.destination) ||
+    getSupportedAirportCode(action.search.simulationDestination);
+
+  return fallbackCode || "DEM";
+};
+
+const applyDemoDestinationPresentation = (
+  flights: Flight[],
+  action: GeminiChatAction | null | undefined
+) => {
+  if (!action || !isObject(action.search)) {
+    return flights;
+  }
+
+  const requestedLabel =
+    typeof action.search.destinationLabel === "string" && action.search.destinationLabel.trim() !== ""
+      ? action.search.destinationLabel.trim()
+      : null;
+  const requestedCountry =
+    typeof action.search.destinationCountry === "string" && action.search.destinationCountry.trim() !== ""
+      ? action.search.destinationCountry.trim()
+      : null;
+  const supportedDestination = getSupportedAirportCode(action.search.destination);
+
+  if (!requestedLabel || supportedDestination) {
+    return flights;
+  }
+
+  const destinationCode = getDemoDestinationCode(action);
+
+  return flights.map((flight, index) => ({
+    ...flight,
+    id: `${flight.id}_demo_${destinationCode}_${index}`,
+    route: {
+      ...flight.route,
+      destination: {
+        ...flight.route.destination,
+        code: destinationCode,
+        city: requestedLabel,
+        name: `${requestedLabel} - Referencia demo`,
+        country: requestedCountry || flight.route.destination.country,
+      },
+    },
+  }));
+};
+
+const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: '1',
-      type: 'assistant',
-      content: '¡Hola! Soy tu asistente de vuelos con IA avanzada. Puedo ayudarte a encontrar las mejores opciones de viaje. ¿A dónde te gustaría viajar?',
-      timestamp: new Date()
-    }
+      id: "1",
+      type: "assistant",
+      content:
+        "Hola. Soy tu asistente de vuelos y puedo ayudarte a encontrar rutas, tarifas y opciones segun destino o presupuesto.",
+      timestamp: new Date(),
+    },
   ]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [isConnectedToAI, setIsConnectedToAI] = useState(true);
-  
-  // Referencias para el scroll automático
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll automático cuando hay mensajes nuevos
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  /**
-   * Envía un mensaje al webhook de n8n y procesa la respuesta
-   * Endpoint: https://n8n-n8n.5raxun.easypanel.host/webhook/8af651f0-e328-4919-b90a-7a4a41a26302
-   */
-  const sendToWebhook = async (message: string): Promise<string> => {
-    const webhookUrl = 'https://n8n-n8n.5raxun.easypanel.host/webhook/8af651f0-e328-4919-b90a-7a4a41a26302';
-    
+  const sendToGemini = async (message: string): Promise<GeminiChatApiResponse> => {
     try {
-      console.log('🚀 Enviando mensaje al webhook:', message);
-      
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
+      const history = messages
+        .filter((entry) => entry.type === "user" || entry.type === "assistant")
+        .slice(-6)
+        .map((entry) => ({
+          role: entry.type,
+          content: entry.content,
+        }));
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: message,
-          timestamp: new Date().toISOString(),
-          source: 'chatbot-tickets',
-          userId: `user-${Date.now()}` // ID único para cada sesión
-        })
+          message,
+          history,
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('✅ Respuesta del webhook:', data);
+      const data = (await response.json()) as GeminiChatApiResponse;
+      const recoveredChatAction = data.chatAction ?? parseChatActionFromOutput(data.output);
 
-      // Procesar respuesta en formato esperado: [{ "output": String }]
-      if (Array.isArray(data) && data.length > 0 && data[0].output) {
-        return data[0].output;
-      } else if (data.output) {
-        // Si la respuesta viene directamente como { output: String }
-        return data.output;
-      } else {
-        console.warn('⚠️ Formato de respuesta inesperado:', data);
-        return 'He recibido tu mensaje, pero la respuesta del servidor tiene un formato inesperado. ¿Podrías intentar nuevamente?';
+      if (recoveredChatAction) {
+        return {
+          ...data,
+          output: recoveredChatAction.reply,
+          chatAction: recoveredChatAction,
+        };
       }
+
+      if (typeof data.output === "string" && data.output.trim() !== "") {
+        return data;
+      }
+
+      return {
+        output: "Recibi tu mensaje, pero Gemini devolvio un formato inesperado.",
+        chatAction: null,
+      };
     } catch (error) {
-      console.error('❌ Error al comunicarse con el webhook:', error);
-      
-      // Actualizar estado de conexión
+      console.error("Gemini error:", error);
       setIsConnectedToAI(false);
-      
-      // Fallback a respuesta local en caso de error
-      return 'Lo siento, hay un problema temporal con mi conexión a la IA. Permíteme ayudarte con la información que tengo disponible localmente.';
+      return {
+        output: "Hay un problema temporal con Gemini. Intenta nuevamente en unos segundos.",
+        chatAction: null,
+      };
     }
   };
 
-  /**
-   * Procesa el mensaje del usuario usando el webhook de n8n
-   * Con fallback a lógica local en caso de error
-   */
   const processUserMessage = async (message: string): Promise<ChatMessage> => {
-    let response = '';
-    let detectedFlights: Flight[] = [];
+    setIsConnectedToAI(true);
 
-    try {
-      // Intentar obtener respuesta del webhook primero
-      setIsConnectedToAI(true); // Resetear estado de conexión al intentar
-      response = await sendToWebhook(message);
-      
-      // Analizar la respuesta para detectar vuelos mencionados
-      const lowerResponse = response.toLowerCase();
-      const lowerMessage = message.toLowerCase();
-      
-      // Detectar si se mencionan destinos específicos en la respuesta o mensaje original
-      if (lowerResponse.includes('bogotá') || lowerMessage.includes('bogotá') || 
-          lowerResponse.includes('bog') || lowerMessage.includes('bog')) {
-        detectedFlights = [...detectedFlights, ...generateSampleFlights('BOG')];
-      }
-      if (lowerResponse.includes('madrid') || lowerMessage.includes('madrid') ||
-          lowerResponse.includes('mad') || lowerMessage.includes('mad')) {
-        detectedFlights = [...detectedFlights, ...generateSampleFlights('MAD')];
-      }
-      if (lowerResponse.includes('miami') || lowerMessage.includes('miami') ||
-          lowerResponse.includes('mia') || lowerMessage.includes('mia')) {
-        detectedFlights = [...detectedFlights, ...generateSampleFlights('MIA')];
-      }
+    const geminiResponse = await sendToGemini(message);
+    const response =
+      typeof geminiResponse.output === "string" && geminiResponse.output.trim() !== ""
+        ? geminiResponse.output
+        : "Cuentame origen, destino y fecha estimada, y te ayudo con opciones.";
+    const searchCriteria = buildSearchCriteriaFromAction(geminiResponse.chatAction);
+    const detectedFlights =
+      searchCriteria && geminiResponse.chatAction?.showFlightOptions
+        ? applyDemoDestinationPresentation(
+            searchFlightsWithMinimumResults(searchCriteria, 20),
+            geminiResponse.chatAction
+          )
+        : [];
 
-    } catch (error) {
-      console.error('Error procesando con webhook, usando lógica local:', error);
-      
-      // Fallback a lógica local si el webhook falla
-      const lowerMessage = message.toLowerCase();
-      
-      if (lowerMessage.includes('vuelo') || lowerMessage.includes('viajar') || lowerMessage.includes('destino')) {
-        if (lowerMessage.includes('bogotá') || lowerMessage.includes('bog')) {
-          response = 'Excelente elección! Bogotá es un destino muy popular. He encontrado algunas opciones de vuelos para ti. ¿Desde qué ciudad te gustaría viajar?';
-          detectedFlights = generateSampleFlights('BOG');
-        } else if (lowerMessage.includes('madrid') || lowerMessage.includes('mad')) {
-          response = 'Madrid es un destino fantástico! He encontrado varios vuelos disponibles con excelentes tarifas B2B.';
-          detectedFlights = generateSampleFlights('MAD');
-        } else if (lowerMessage.includes('miami') || lowerMessage.includes('mia')) {
-          response = 'Miami es perfecto para vacaciones! Aquí tienes las mejores opciones de vuelos.';
-          detectedFlights = generateSampleFlights('MIA');
-        } else {
-          response = 'Me encanta ayudarte a planear tu viaje! Para buscar vuelos específicos, necesito saber tu ciudad de origen y destino. ¿Podrías decirme desde dónde quieres viajar y hacia dónde?';
-        }
-      } else if (lowerMessage.includes('precio') || lowerMessage.includes('costo') || lowerMessage.includes('tarifa')) {
-        response = 'Nuestras tarifas B2B son exclusivas para agencias y ofrecen hasta 30% de descuento comparado con precios públicos. Las tarifas varían según destino, fechas y disponibilidad. ¿Te gustaría que busque precios para un destino específico?';
-      } else if (lowerMessage.includes('hola') || lowerMessage.includes('buenos') || lowerMessage.includes('buenas')) {
-        response = '¡Hola! Me da mucho gusto saludarte. Estoy aquí para ayudarte a encontrar los mejores vuelos con nuestras tarifas B2B exclusivas. ¿En qué puedo asistirte hoy?';
-      } else if (lowerMessage.includes('gracias')) {
-        response = '¡De nada! Es un placer ayudarte. Si necesitas buscar más vuelos o tienes alguna pregunta, no dudes en escribirme.';
-      } else {
-        response = 'Entiendo que estás buscando información sobre vuelos. Puedo ayudarte a encontrar las mejores opciones. ¿Podrías contarme más detalles sobre tu viaje? Por ejemplo: origen, destino y fechas aproximadas.';
-      }
-    }
-
-    // Notificar vuelos detectados al componente padre
-    if (detectedFlights.length > 0 && onFlightsDetected) {
-      onFlightsDetected(detectedFlights);
+    if (geminiResponse.chatAction?.showFlightOptions) {
+      onFlightsDetected?.(detectedFlights);
+    } else {
+      onFlightsDetected?.([]);
     }
 
     return {
       id: Date.now().toString(),
-      type: 'assistant',
+      type: "assistant",
       content: response,
       timestamp: new Date(),
-      flights: detectedFlights
+      flights: detectedFlights,
     };
   };
 
-  /**
-   * Genera vuelos de ejemplo para demostración
-   * En producción esto vendría de la API real
-   */
-  const generateSampleFlights = (destination: string): Flight[] => {
-    const sampleFlights: Flight[] = [
-      {
-        id: `chat-${Date.now()}-1`,
-        airline: 'Avianca',
-        airlineCode: 'AV',
-        flightNumber: 'AV8001',
-        route: {
-          origin: {
-            code: 'BOG',
-            name: 'El Dorado International Airport',
-            city: 'Bogotá',
-            country: 'Colombia'
-          },
-          destination: {
-            code: destination,
-            name: destination === 'MAD' ? 'Adolfo Suárez Madrid-Barajas Airport' : 
-                  destination === 'MIA' ? 'Miami International Airport' : 'Internacional Airport',
-            city: destination === 'MAD' ? 'Madrid' : destination === 'MIA' ? 'Miami' : 'Ciudad',
-            country: destination === 'MAD' ? 'España' : destination === 'MIA' ? 'Estados Unidos' : 'País'
-          },
-          stops: [],
-          duration: {
-            total: '6h 15m',
-            flying: '6h 15m'
-          },
-          distance: 7500
-        },
-        schedule: {
-          departure: {
-            date: '2024-03-15',
-            time: '08:30',
-            timezone: 'COT'
-          },
-          arrival: {
-            date: '2024-03-15',
-            time: '14:45',
-            timezone: destination === 'MAD' ? 'CET' : destination === 'MIA' ? 'EST' : 'UTC'
-          }
-        },
-        aircraft: 'Boeing 787',
-        pricing: {
-          currency: 'USD',
-          publicPrice: 850,
-          agencyPrice: 650,
-          discount: 23.5,
-          taxes: 120,
-          fees: 50,
-          total: 820,
-          priceBreakdown: {
-            baseFare: 650,
-            taxes: [
-              { code: 'YQ', name: 'Fuel Surcharge', amount: 80 },
-              { code: 'CO', name: 'Airport Tax Colombia', amount: 40 }
-            ],
-            fees: [
-              { type: 'booking', description: 'Booking Fee', amount: 50 }
-            ]
-          }
-        },
-        availability: {
-          seats: 45,
-          cabinClass: 'economy',
-          bookingClass: 'Y',
-          refundable: false,
-          changeable: true,
-          lastUpdate: new Date().toISOString()
-        },
-        services: {
-          meals: ['Breakfast', 'Lunch'],
-          entertainment: true,
-          wifi: true,
-          powerOutlets: true,
-          extraLegroom: false
-        },
-        baggage: {
-          carry: {
-            included: true,
-            weight: '8kg',
-            dimensions: '55x40x20cm'
-          },
-          checked: {
-            included: true,
-            weight: '23kg'
-          }
-        },
-        restrictions: {
-          cancellationPolicy: 'Non-refundable',
-          changePolicy: 'Changes allowed with fee'
-        }
-      }
-    ];
-
-    return sampleFlights;
-  };
-
-  /**
-   * Maneja el envío de mensajes del usuario
-   */
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim()) {
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      type: 'user',
+      type: "user",
       content: inputMessage.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    // Agregar mensaje del usuario
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
+    setInputMessage("");
     setIsTyping(true);
 
     try {
-      // Procesar mensaje y generar respuesta
       const assistantResponse = await processUserMessage(userMessage.content);
-      setMessages(prev => [...prev, assistantResponse]);
-    } catch (error) {
-      // Manejo de errores robusto para producción
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'assistant',
-        content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor intenta nuevamente.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((currentMessages) => [...currentMessages, assistantResponse]);
+    } catch (_error) {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: Date.now().toString(),
+          type: "assistant",
+          content: "Lo siento, hubo un error al procesar tu mensaje. Intenta nuevamente.",
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  /**
-   * Maneja el evento de presionar Enter
-   */
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  /**
-   * Formatea la hora del mensaje
-   */
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
-  };
 
   return (
-    <Card className={`w-full max-w-4xl mx-auto ${className}`}>
+    <Card className={`mx-auto w-full max-w-4xl ${className}`}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5 text-primary" />
-          Asistente de Vuelos IA
-          <Badge 
-            variant={isConnectedToAI ? "secondary" : "destructive"} 
-            className="ml-auto"
-          >
-            <Bot className="h-3 w-3 mr-1" />
-            {isConnectedToAI ? 'IA Conectada' : 'Modo Local'}
+          Asistente de vuelos
+          <Badge variant={isConnectedToAI ? "secondary" : "destructive"} className="ml-auto">
+            <Bot className="mr-1 h-3 w-3" />
+            {isConnectedToAI ? "Gemini conectada" : "Modo local"}
           </Badge>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Encuentra vuelos usando lenguaje natural. Pregúntame sobre destinos, precios o fechas.
+          Preguntame por destinos, tarifas o fechas y te devuelvo una guia rapida.
         </p>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Área de mensajes */}
-        <ScrollArea 
-          ref={scrollAreaRef}
-          className="h-96 w-full rounded-md border p-4"
-        >
+        <ScrollArea className="h-96 w-full rounded-md border p-4">
           <div className="space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${
-                  message.type === 'user' ? 'justify-end' : 'justify-start'
-                }`}
+                className={`flex gap-3 ${message.type === "user" ? "justify-end" : "justify-start"}`}
               >
-                {message.type === 'assistant' && (
+                {message.type === "assistant" && (
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
                       <Bot className="h-4 w-4 text-primary-foreground" />
                     </div>
                   </div>
@@ -398,57 +422,54 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
 
                 <div
                   className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                    message.type === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                    message.type === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                   }`}
                 >
                   <p className="text-sm">{message.content}</p>
-                  
-                  {/* Mostrar vuelos detectados */}
-                  {message.flights && message.flights.length > 0 && (
+
+                  {(message.flights ?? []).length > 0 && (
                     <div className="mt-3 space-y-2">
-                      {message.flights.map((flight) => (
-                        <div
-                          key={flight.id}
-                          className="bg-background rounded-md p-3 border"
-                        >
-                          <div className="flex items-center justify-between mb-2">
+                      {message.flights?.slice(0, 4).map((flight) => (
+                        <div key={flight.id} className="rounded-md border bg-background p-3">
+                          <div className="mb-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Plane className="h-4 w-4 text-primary" />
-                              <span className="font-medium text-sm">
+                              <span className="text-sm font-medium">
                                 {flight.flightNumber} - {flight.airline}
                               </span>
                             </div>
                             <Badge variant="outline" className="text-xs">
-                              <DollarSign className="h-3 w-3 mr-1" />
-                              ${flight.pricing.agencyPrice}
+                              <DollarSign className="mr-1 h-3 w-3" />
+                              ${flight.pricing.agencyPrice.toLocaleString()}
                             </Badge>
                           </div>
-                          
+
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
-                              {flight.route.origin.code} → {flight.route.destination.code}
+                              {flight.route.origin.code} - {flight.route.destination.code}
                             </div>
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {flight.schedule.departure.time}
+                              {flight.schedule.departure.date}
                             </div>
                           </div>
                         </div>
                       ))}
+                      {message.flights && message.flights.length > 4 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{message.flights.length - 4} opciones mas en la seccion de resultados.
+                        </p>
+                      )}
                     </div>
                   )}
-                  
-                  <p className="text-xs opacity-70 mt-1">
-                    {formatTime(message.timestamp)}
-                  </p>
+
+                  <p className="mt-1 text-xs opacity-70">{formatTime(message.timestamp)}</p>
                 </div>
 
-                {message.type === 'user' && (
+                {message.type === "user" && (
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                       <User className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
@@ -456,20 +477,17 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
               </div>
             ))}
 
-            {/* Indicador de escritura */}
             {isTyping && (
-              <div className="flex gap-3 justify-start">
+              <div className="flex justify-start gap-3">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
                     <Bot className="h-4 w-4 text-primary-foreground" />
                   </div>
                 </div>
-                <div className="bg-muted rounded-lg px-4 py-2">
+                <div className="rounded-lg bg-muted px-4 py-2">
                   <div className="flex items-center gap-1">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">
-                      Escribiendo...
-                    </span>
+                    <span className="text-sm text-muted-foreground">Escribiendo...</span>
                   </div>
                 </div>
               </div>
@@ -479,12 +497,16 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
           </div>
         </ScrollArea>
 
-        {/* Input de mensaje */}
         <div className="flex gap-2">
           <Input
             value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onChange={(event) => setInputMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                handleSendMessage();
+              }
+            }}
             placeholder="Escribe tu mensaje... (ej: 'Busco vuelos a Madrid')"
             className="flex-1"
             disabled={isTyping}
@@ -498,28 +520,34 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
           </Button>
         </div>
 
-        {/* Sugerencias rápidas */}
         <div className="flex flex-wrap gap-2">
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="cursor-pointer hover:bg-muted"
-            onClick={() => setInputMessage('Busco vuelos a Madrid')}
+            onClick={() => setInputMessage("Busco vuelos a Madrid")}
           >
             Vuelos a Madrid
           </Badge>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="cursor-pointer hover:bg-muted"
-            onClick={() => setInputMessage('¿Cuáles son las tarifas B2B?')}
+            onClick={() => setInputMessage("Cuales son las tarifas B2B?")}
           >
             Tarifas B2B
           </Badge>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="cursor-pointer hover:bg-muted"
-            onClick={() => setInputMessage('Vuelos baratos a Miami')}
+            onClick={() => setInputMessage("Vuelos baratos a Miami")}
           >
             Vuelos a Miami
+          </Badge>
+          <Badge
+            variant="outline"
+            className="cursor-pointer hover:bg-muted"
+            onClick={() => setInputMessage("Busco viajes a Corea del Sur")}
+          >
+            Viajes a Corea
           </Badge>
         </div>
       </CardContent>

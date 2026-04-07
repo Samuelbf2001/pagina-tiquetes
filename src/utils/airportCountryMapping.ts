@@ -9,6 +9,7 @@ export const airportToCountry: Record<string, string> = {
   'BGA': 'CO', // Bucaramanga
   'SMR': 'CO', // Santa Marta
   'PEI': 'CO', // Pereira
+  'VVC': 'CO', // Villavicencio
   'ADZ': 'CO', // San Andrés
   'CUC': 'CO', // Cúcuta
 

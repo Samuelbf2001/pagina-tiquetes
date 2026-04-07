@@ -1,73 +1,76 @@
-# Welcome to your Lovable project
+# Student Travel Center
 
-## Project info
+Aplicacion web para cotizacion de programas y simulacion de vuelos, con chat asistido por Gemini y despliegue listo para contenedor.
 
-**URL**: https://lovable.dev/projects/1b99bb1e-e932-4413-9387-cabccf25daae
+## Requisitos
 
-## How can I edit this code?
+- Node.js 22 o superior
+- npm 10 o superior
 
-There are several ways of editing your application.
+## Variables de entorno
 
-**Use Lovable**
+Crea un `.env.local` para desarrollo local o configura estas variables en tu plataforma de despliegue:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/1b99bb1e-e932-4413-9387-cabccf25daae) and start prompting.
+```env
+GEMINI_API_KEY=tu_clave_de_google_ai
+GEMINI_MODEL=gemini-3.1-pro-preview
+PORT=4173
+HOST=0.0.0.0
+```
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Desarrollo local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+La app quedara disponible en `http://localhost:4173`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Build de produccion
 
-**Use GitHub Codespaces**
+```sh
+npm run build
+npm run start
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Despliegue en Easypanel
 
-## What technologies are used for this project?
+Este repo ya incluye un `Dockerfile`, por lo que Easypanel puede construir la imagen directamente desde Git. Segun la documentacion oficial de Easypanel, cuando un repositorio tiene `Dockerfile`, el App Service lo utiliza para el build y luego solo hay que indicar el puerto del proxy que escucha la app.
 
-This project is built with:
+### Configuracion recomendada
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. Crea un nuevo **App Service** desde tu repositorio.
+2. Deja que Easypanel detecte y use el `Dockerfile`.
+3. En **Environment**, configura:
+   - `GEMINI_API_KEY`
+   - `GEMINI_MODEL=gemini-3.1-pro-preview`
+   - `PORT=4173`
+   - `HOST=0.0.0.0`
+4. En **Domains & Proxy**, usa como **Proxy Port** el `4173`.
+5. Asocia el dominio o subdominio que quieras usar para esta app.
+6. Despliega el servicio.
 
-## How can I deploy this project?
+### Notas para VPS con otras apps
 
-Simply open [Lovable](https://lovable.dev/projects/1b99bb1e-e932-4413-9387-cabccf25daae) and click on Share -> Publish.
+- No necesitas reservar un puerto publico manual si vas a exponer la app por **Domains & Proxy**.
+- El contenedor escucha internamente en `4173`; Easypanel se encarga del enrutamiento junto con las otras apps.
+- Si quieres revisar salud del contenedor, el endpoint es `/health`.
+- El chat depende de `GEMINI_API_KEY`; sin esa variable, la UI cargara pero el asistente no respondera.
 
-## Can I connect a custom domain to my Lovable project?
+### Verificacion rapida
 
-Yes, you can!
+- Healthcheck: `https://tu-dominio/health`
+- Chat API: `POST https://tu-dominio/api/chat`
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Scripts utiles
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- `npm run dev`: servidor local con Vite y API de chat
+- `npm run build`: build de frontend
+- `npm run lint`: validacion de codigo
+- `npm run start`: servidor de produccion
+
+## Referencias
+
+- Easypanel App Service: https://easypanel.io/docs/services/app
+- Easypanel Dockerizer Node.js: https://easypanel.io/dockerizer/nodejs/

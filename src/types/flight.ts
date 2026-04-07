@@ -1,3 +1,8 @@
+export type CabinClass = "economy" | "premium-economy" | "business" | "first";
+export type TripType = "one-way" | "round-trip" | "multi-city";
+export type FlightFlexibility = "exact" | "plus-minus-1" | "plus-minus-3";
+export type FlightRouteType = "direct" | "connecting" | "both";
+
 export interface Flight {
   id: string;
   airline: string;
@@ -19,25 +24,25 @@ export interface FlightRoute {
   destination: Airport;
   stops: Airport[];
   duration: {
-    total: string; // "14h 30m"
-    flying: string; // "12h 45m"
+    total: string;
+    flying: string;
   };
-  distance: number; // km
+  distance: number;
 }
 
 export interface Airport {
-  code: string; // "BOG"
-  name: string; // "El Dorado International Airport"
-  city: string; // "Bogotá"
-  country: string; // "Colombia"
+  code: string;
+  name: string;
+  city: string;
+  country: string;
   terminal?: string;
 }
 
 export interface FlightSchedule {
   departure: {
-    date: string; // "2024-12-15"
-    time: string; // "14:30"
-    timezone: string; // "COT"
+    date: string;
+    time: string;
+    timezone: string;
   };
   arrival: {
     date: string;
@@ -49,15 +54,15 @@ export interface FlightSchedule {
 
 export interface Layover {
   airport: Airport;
-  duration: string; // "2h 15m"
+  duration: string;
   aircraft?: string;
 }
 
 export interface FlightPricing {
   currency: string;
   publicPrice: number;
-  agencyPrice: number; // Precio B2B
-  discount: number; // Porcentaje de descuento
+  agencyPrice: number;
+  discount: number;
   taxes: number;
   fees: number;
   total: number;
@@ -82,15 +87,15 @@ export interface PriceFee {
 
 export interface FlightAvailability {
   seats: number;
-  cabinClass: 'economy' | 'premium-economy' | 'business' | 'first';
-  bookingClass: string; // "Y", "M", "B", etc.
+  cabinClass: CabinClass;
+  bookingClass: string;
   refundable: boolean;
   changeable: boolean;
   lastUpdate: string;
 }
 
 export interface FlightServices {
-  meals: string[]; // ["Breakfast", "Lunch"]
+  meals: string[];
   entertainment: boolean;
   wifi: boolean;
   powerOutlets: boolean;
@@ -100,20 +105,20 @@ export interface FlightServices {
 export interface BaggageInfo {
   carry: {
     included: boolean;
-    weight: string; // "8kg"
-    dimensions: string; // "55x40x20cm"
+    weight: string;
+    dimensions: string;
   };
   checked: {
     included: boolean;
-    weight: string; // "23kg"
+    weight: string;
     additionalFee?: number;
   };
 }
 
 export interface FlightRestrictions {
-  minStay?: number; // días
-  maxStay?: number; // días
-  advancePurchase?: number; // días
+  minStay?: number;
+  maxStay?: number;
+  advancePurchase?: number;
   cancellationPolicy: string;
   changePolicy: string;
 }
@@ -122,20 +127,21 @@ export interface FlightSearchCriteria {
   origin: string;
   destination: string;
   departureDate: string;
-  returnDate?: string; // Para vuelos redondos
+  returnDate?: string;
   passengers: {
     adults: number;
     children: number;
     infants: number;
   };
-  cabinClass: 'economy' | 'premium-economy' | 'business' | 'first';
-  tripType: 'one-way' | 'round-trip' | 'multi-city';
-  flexibility?: 'exact' | 'plus-minus-1' | 'plus-minus-3';
-  routeType?: 'direct' | 'connecting' | 'both'; // Nuevo campo para tipo de ruta
+  cabinClass: CabinClass;
+  tripType: TripType;
+  flexibility?: FlightFlexibility;
+  routeType?: FlightRouteType;
+  hasUsVisa?: boolean;
 }
 
 export interface FlightRouteOption {
-  type: 'direct' | 'connecting';
+  type: Extract<FlightRouteType, "direct" | "connecting">;
   label: string;
   description: string;
   available: boolean;
@@ -155,4 +161,11 @@ export interface FlightCart {
   };
   totalPrice: number;
   currency: string;
-} 
+}
+
+export interface RouteInfo {
+  options: FlightRouteOption[];
+  visaRequirements: string[];
+  hasDirectFlights: boolean;
+  totalOptions: number;
+}

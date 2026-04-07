@@ -1,95 +1,98 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
-import { 
-  Plane, 
-  Clock, 
-  Users, 
-  Wifi, 
-  Coffee, 
-  Tv, 
-  Luggage,
-  MapPin,
-  Calendar,
-  TrendingDown,
-  Star,
-  FileText,
-  AlertTriangle,
-  CheckCircle,
-  Info,
-  ChevronDown,
-  ChevronUp
-} from "lucide-react";
-import { Flight } from "@/types/flight";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+  Calendar,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Coffee,
+  FileText,
+  Info,
+  Luggage,
+  MapPin,
+  Plane,
+  TrendingDown,
+  Tv,
+  Wifi,
+} from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 import { getCountryCodesFromRoute, getCountryFromAirport } from "@/utils/airportCountryMapping";
-import { getCountryRequirements, getTransitRequirements, getVisaRequirements } from "@/utils/countryRequirements";
+import {
+  getCountryRequirements,
+  getTransitRequirements,
+  getVisaRequirements,
+} from "@/utils/countryRequirements";
+import type { Flight } from "@/types/flight";
 
 interface FlightResultsProps {
   flights: Flight[];
   onSelectFlight: (flight: Flight) => void;
   isLoading?: boolean;
+  emptyState?: {
+    title: string;
+    description: string;
+  };
 }
 
-// Componente para cada vuelo individual con su propio estado de collapsible
-function FlightCard({ flight, onSelectFlight }: { flight: Flight; onSelectFlight: (flight: Flight) => void }) {
+function formatFlightDate(date: string) {
+  const parsedDate = new Date(`${date}T12:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return date;
+  }
+
+  return format(parsedDate, "d MMM", { locale: es });
+}
+
+function FlightCard({
+  flight,
+  onSelectFlight,
+}: {
+  flight: Flight;
+  onSelectFlight: (flight: Flight) => void;
+}) {
   const [isRequirementsOpen, setIsRequirementsOpen] = useState(false);
-
-  const formatTime = (time: string) => {
-    try {
-      const [hours, minutes] = time.split(':');
-      return `${hours}:${minutes}`;
-    } catch (error) {
-      return time;
-    }
-  };
-
-  const formatDate = (date: string) => {
-    try {
-      const dateObj = new Date(date);
-      return format(dateObj, 'd MMM', { locale: es });
-    } catch (error) {
-      return date;
-    }
-  };
-
-  // Calcular requisitos para este vuelo específico
   const countryCodes = getCountryCodesFromRoute(
     flight.route.origin.code,
     flight.route.destination.code,
     flight.schedule.layovers
   );
-  
-  const allRequirements = countryCodes.map(countryCode => {
-    const requirements = getCountryRequirements(countryCode);
-    const isLayover = flight.schedule.layovers?.some(
-      layover => getCountryFromAirport(layover.airport.code) === countryCode
-    );
-    const isDestination = getCountryFromAirport(flight.route.destination.code) === countryCode;
-    
-    return {
-      countryCode,
-      requirements,
-      isLayover: isLayover && !isDestination,
-      isDestination
-    };
-  }).filter(item => item.requirements);
 
-  const hasRequirements = allRequirements.length > 0;
+  const allRequirements = countryCodes
+    .map((countryCode) => {
+      const requirements = getCountryRequirements(countryCode);
+      const isLayover = (flight.schedule.layovers ?? []).some(
+        (layover) => getCountryFromAirport(layover.airport.code) === countryCode
+      );
+      const isDestination = getCountryFromAirport(flight.route.destination.code) === countryCode;
+
+      return {
+        countryCode,
+        requirements,
+        isLayover: isLayover && !isDestination,
+        isDestination,
+      };
+    })
+    .filter((item) => item.requirements);
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-300 border-l-4 border-l-primary">
+    <Card className="border-l-4 border-l-primary transition-shadow duration-300 hover:shadow-lg">
       <CardContent className="p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
-          
-          {/* Información de la aerolínea y vuelo */}
+        <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
                 <span className="text-xs font-bold text-white">{flight.airlineCode}</span>
               </div>
               <div>
@@ -100,109 +103,100 @@ function FlightCard({ flight, onSelectFlight }: { flight: Flight; onSelectFlight
             <div className="text-xs text-muted-foreground">{flight.aircraft}</div>
           </div>
 
-          {/* Información del vuelo */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Ruta principal */}
+          <div className="space-y-4 lg:col-span-2">
             <div className="flex items-center justify-between">
               <div className="text-center">
-                <div className="text-2xl font-bold">{formatTime(flight.schedule.departure.time)}</div>
+                <div className="text-2xl font-bold">{flight.schedule.departure.time}</div>
                 <div className="text-sm text-muted-foreground">{flight.route.origin.code}</div>
-                <div className="text-xs text-muted-foreground">{formatDate(flight.schedule.departure.date)}</div>
-              </div>
-              
-              <div className="flex-1 mx-4">
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <div className="flex-1 h-0.5 bg-gray-300 relative">
-                    <Plane className="h-4 w-4 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-primary" />
-                  </div>
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <div className="text-xs text-muted-foreground">
+                  {formatFlightDate(flight.schedule.departure.date)}
                 </div>
-                <div className="text-center mt-1">
+              </div>
+
+              <div className="mx-4 flex-1">
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <div className="relative h-0.5 flex-1 bg-gray-300">
+                    <Plane className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-primary" />
+                  </div>
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                </div>
+                <div className="mt-1 text-center">
                   <div className="text-sm text-muted-foreground">{flight.route.duration.total}</div>
                   {flight.route.stops.length > 0 && (
                     <div className="text-xs text-orange-600">
-                      {flight.route.stops.length} escala{flight.route.stops.length !== 1 ? 's' : ''}
+                      {flight.route.stops.length} escala
+                      {flight.route.stops.length !== 1 ? "s" : ""}
                     </div>
                   )}
                 </div>
               </div>
-              
+
               <div className="text-center">
-                <div className="text-2xl font-bold">{formatTime(flight.schedule.arrival.time)}</div>
+                <div className="text-2xl font-bold">{flight.schedule.arrival.time}</div>
                 <div className="text-sm text-muted-foreground">{flight.route.destination.code}</div>
-                <div className="text-xs text-muted-foreground">{formatDate(flight.schedule.arrival.date)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatFlightDate(flight.schedule.arrival.date)}
+                </div>
               </div>
             </div>
 
-            {/* Escalas */}
-            {flight.schedule.layovers && flight.schedule.layovers.length > 0 && (
-              <div className="text-xs text-center space-y-1">
-                <div className="text-muted-foreground font-medium">
-                  {flight.schedule.layovers.length === 1 ? 'Escala en:' : 'Escalas en:'}
+            {(flight.schedule.layovers ?? []).length > 0 && (
+              <div className="space-y-1 text-center text-xs">
+                <div className="font-medium text-muted-foreground">
+                  {(flight.schedule.layovers ?? []).length === 1 ? "Escala en:" : "Escalas en:"}
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  {flight.schedule.layovers.map((layover, index) => (
-                    <div key={index} className="flex items-center space-x-1">
-                      <div className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-medium">
-                        <MapPin className="h-3 w-3 inline mr-1" />
+                  {(flight.schedule.layovers ?? []).map((layover, index) => (
+                    <div key={`${layover.airport.code}-${index}`} className="flex items-center space-x-1">
+                      <div className="rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">
+                        <MapPin className="mr-1 inline h-3 w-3" />
                         {layover.airport.city}, {layover.airport.country}
                       </div>
-                      <span className="text-muted-foreground text-xs">
-                        ({layover.duration})
-                      </span>
-                      {index < flight.schedule.layovers.length - 1 && (
-                        <span className="text-muted-foreground mx-1">→</span>
-                      )}
+                      <span className="text-muted-foreground">({layover.duration})</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Servicios */}
             <div className="flex items-center justify-center space-x-4 text-muted-foreground">
               {flight.services.wifi && <Wifi className="h-4 w-4" />}
               {flight.services.meals.length > 0 && <Coffee className="h-4 w-4" />}
               {flight.services.entertainment && <Tv className="h-4 w-4" />}
               <Luggage className="h-4 w-4" />
-              <span className="text-xs">{flight.baggage.checked.weight} incluido</span>
+              <span className="text-xs">
+                {flight.baggage.checked.included
+                  ? `${flight.baggage.checked.weight} incluido`
+                  : "Equipaje en bodega no incluido"}
+              </span>
             </div>
           </div>
 
-          {/* Precios y selección */}
           <div className="space-y-4">
             <div className="text-right">
-              {/* Precio público tachado */}
               <div className="text-sm text-muted-foreground line-through">
-                Público: ${flight.pricing.publicPrice.toLocaleString()}
+                Publico: ${flight.pricing.publicPrice.toLocaleString()}
               </div>
-              
-              {/* Descuento B2B */}
-              <div className="flex items-center justify-end space-x-2 mb-2">
+              <div className="mb-2 flex items-center justify-end space-x-2">
                 <Badge variant="destructive" className="text-xs">
                   -{flight.pricing.discount}% B2B
                 </Badge>
               </div>
-              
-              {/* Precio B2B */}
               <div className="text-3xl font-bold text-primary">
                 ${flight.pricing.agencyPrice.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground">
                 Total: ${flight.pricing.total.toLocaleString()} {flight.pricing.currency}
               </div>
-              <div className="text-xs text-muted-foreground">
-                + impuestos y tasas
-              </div>
+              <div className="text-xs text-muted-foreground">Incluye impuestos y tasas</div>
             </div>
 
-            {/* Disponibilidad */}
             <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-2">
+              <div className="mb-2 text-xs text-muted-foreground">
                 {flight.availability.seats} asientos disponibles
               </div>
-              <Badge 
+              <Badge
                 variant={flight.availability.seats > 9 ? "default" : "destructive"}
                 className="text-xs"
               >
@@ -210,95 +204,89 @@ function FlightCard({ flight, onSelectFlight }: { flight: Flight; onSelectFlight
               </Badge>
             </div>
 
-            {/* Botón de selección */}
-            <Button 
+            <Button
               onClick={() => onSelectFlight(flight)}
-              className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
+              className="w-full bg-gradient-primary transition-all duration-300 hover:shadow-glow"
               size="lg"
             >
-              Seleccionar Vuelo
+              Seleccionar vuelo
             </Button>
 
-            {/* Políticas */}
-            <div className="text-xs text-muted-foreground text-center space-y-1">
+            <div className="text-center text-xs text-muted-foreground">
               <div className="flex items-center justify-center space-x-2">
                 {flight.availability.refundable && (
-                  <Badge variant="outline" className="text-xs">Reembolsable</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Reembolsable
+                  </Badge>
                 )}
                 {flight.availability.changeable && (
-                  <Badge variant="outline" className="text-xs">Cambios</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Cambios
+                  </Badge>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Información expandida (opcional) */}
         <Separator className="my-4" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+        <div className="grid grid-cols-1 gap-4 text-sm text-muted-foreground md:grid-cols-3">
           <div className="flex items-center space-x-2">
             <MapPin className="h-4 w-4" />
-            <span>{flight.route.origin.city} → {flight.route.destination.city}</span>
+            <span>
+              {flight.route.origin.city} - {flight.route.destination.city}
+            </span>
           </div>
           <div className="flex items-center space-x-2">
             <Clock className="h-4 w-4" />
-            <span>Duración de vuelo: {flight.route.duration.flying}</span>
+            <span>Tiempo en vuelo: {flight.route.duration.flying}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4" />
-            <span>Reserva hasta {flight.restrictions.advancePurchase} días antes</span>
+            <span>Reserva con {flight.restrictions.advancePurchase ?? 0} dias de anticipacion</span>
           </div>
         </div>
 
-        {/* Información detallada de escalas */}
-        {flight.schedule.layovers && flight.schedule.layovers.length > 0 && (
-          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-            <div className="flex items-center space-x-2 mb-2">
+        {(flight.schedule.layovers ?? []).length > 0 && (
+          <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
+            <div className="mb-2 flex items-center space-x-2">
               <Plane className="h-4 w-4 text-orange-600" />
-              <span className="font-medium text-orange-800 text-sm">
-                Itinerario de escalas
+              <span className="text-sm font-medium text-orange-800">
+                Itinerario de conexiones
               </span>
             </div>
             <div className="grid grid-cols-1 gap-2">
-              {flight.schedule.layovers.map((layover, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
+              {(flight.schedule.layovers ?? []).map((layover, index) => (
+                <div key={`${layover.airport.code}-${index}`} className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                    <div className="h-2 w-2 rounded-full bg-orange-400" />
                     <span className="font-medium">
                       {layover.airport.city}, {layover.airport.country}
                     </span>
-                    <span className="text-muted-foreground text-xs">
+                    <span className="text-xs text-muted-foreground">
                       ({layover.airport.code})
                     </span>
                   </div>
-                  <div className="text-orange-700 font-medium">
-                    {layover.duration} conexión
-                  </div>
+                  <div className="font-medium text-orange-700">{layover.duration} conexion</div>
                 </div>
               ))}
-            </div>
-            <div className="mt-2 text-xs text-orange-600">
-              💡 Tiempo suficiente para conexiones cómodas
             </div>
           </div>
         )}
 
-        {/* Requisitos de documentación - COLLAPSIBLE */}
-        {hasRequirements && (
+        {allRequirements.length > 0 && (
           <Collapsible open={isRequirementsOpen} onOpenChange={setIsRequirementsOpen}>
             <div className="mt-4">
               <CollapsibleTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-between p-3 bg-blue-50 border-blue-200 hover:bg-blue-100 transition-colors"
+                <Button
+                  variant="outline"
+                  className="w-full justify-between bg-blue-50 p-3 transition-colors hover:bg-blue-100"
                 >
                   <div className="flex items-center space-x-2">
                     <FileText className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium text-blue-800 text-sm">
-                      Requisitos
-                    </span>
-                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                      {allRequirements.length} país{allRequirements.length !== 1 ? 'es' : ''}
+                    <span className="text-sm font-medium text-blue-800">Requisitos</span>
+                    <Badge variant="secondary" className="bg-blue-100 text-xs text-blue-700">
+                      {allRequirements.length} pais{allRequirements.length !== 1 ? "es" : ""}
                     </Badge>
                   </div>
                   {isRequirementsOpen ? (
@@ -308,69 +296,77 @@ function FlightCard({ flight, onSelectFlight }: { flight: Flight; onSelectFlight
                   )}
                 </Button>
               </CollapsibleTrigger>
-              
+
               <CollapsibleContent>
-                <div className="mt-2 p-4 bg-blue-50 border border-blue-200 rounded-lg border-t-0 rounded-t-none">
+                <div className="mt-2 rounded-b-lg rounded-t-none border border-blue-200 border-t-0 bg-blue-50 p-4">
                   <div className="space-y-3">
-                    {allRequirements.map((item, index) => {
-                      if (!item.requirements) return null;
-                      
-                      const relevantReqs = item.isLayover 
+                    {allRequirements.map((item) => {
+                      if (!item.requirements) {
+                        return null;
+                      }
+
+                      const relevantRequirements = item.isLayover
                         ? getTransitRequirements(item.countryCode) || item.requirements.requirements
                         : getVisaRequirements(item.countryCode) || item.requirements.requirements;
 
                       return (
-                        <div key={index} className="space-y-2">
+                        <div key={item.countryCode} className="space-y-2">
                           <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-1">
-                              <span className="text-sm font-medium text-blue-800">
-                                {item.requirements.country}
-                              </span>
-                              {item.isLayover && (
-                                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
-                                  Escala
-                                </Badge>
-                              )}
-                              {item.isDestination && (
-                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                                  Destino
-                                </Badge>
-                              )}
-                            </div>
+                            <span className="text-sm font-medium text-blue-800">
+                              {item.requirements.country}
+                            </span>
+                            {item.isLayover && (
+                              <Badge variant="outline" className="text-xs">
+                                Escala
+                              </Badge>
+                            )}
+                            {item.isDestination && (
+                              <Badge variant="outline" className="text-xs">
+                                Destino
+                              </Badge>
+                            )}
                           </div>
-                          
-                          <div className="space-y-2">
-                            {relevantReqs.slice(0, 1).map((req, reqIndex) => (
-                              <div key={reqIndex} className="flex items-start space-x-2 text-xs">
-                                <div className="flex items-center space-x-1 mt-0.5">
-                                  {req.urgency === 'high' && <AlertTriangle className="h-3 w-3 text-red-500" />}
-                                  {req.urgency === 'medium' && <Info className="h-3 w-3 text-yellow-500" />}
-                                  {req.urgency === 'low' && <CheckCircle className="h-3 w-3 text-green-500" />}
-                                  <span className="text-xs">{req.icon}</span>
-                                </div>
-                                <div className="flex-1">
-                                  <div className="font-medium text-gray-800">{req.title}</div>
-                                  <div className="text-gray-600">{req.description}</div>
-                                  {req.additionalInfo && req.additionalInfo.length > 0 && (
-                                    <ul className="mt-1 space-y-0.5">
-                                      {req.additionalInfo.slice(0, 2).map((info, infoIndex) => (
-                                        <li key={infoIndex} className="text-gray-500 text-xs">
-                                          • {info}
+
+                          {relevantRequirements.slice(0, 1).map((requirement) => (
+                            <div
+                              key={requirement.title}
+                              className="flex items-start space-x-2 text-xs"
+                            >
+                              <div className="mt-0.5 flex items-center space-x-1">
+                                {requirement.urgency === "high" && (
+                                  <Info className="h-3 w-3 text-red-500" />
+                                )}
+                                {requirement.urgency === "medium" && (
+                                  <Info className="h-3 w-3 text-yellow-500" />
+                                )}
+                                {requirement.urgency === "low" && (
+                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-800">{requirement.title}</div>
+                                <div className="text-gray-600">{requirement.description}</div>
+                                {(requirement.additionalInfo ?? []).length > 0 && (
+                                  <ul className="mt-1 space-y-0.5">
+                                    {(requirement.additionalInfo ?? [])
+                                      .slice(0, 2)
+                                      .map((infoDetail) => (
+                                        <li key={infoDetail} className="text-xs text-gray-500">
+                                          {infoDetail}
                                         </li>
                                       ))}
-                                    </ul>
-                                  )}
-                                </div>
+                                  </ul>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
                       );
                     })}
                   </div>
-                  
-                  <div className="mt-3 text-xs text-blue-600 bg-blue-100 p-2 rounded">
-                    ℹ️ Consulta con tu agente de viajes para información actualizada sobre requisitos específicos
+
+                  <div className="mt-3 rounded bg-blue-100 p-2 text-xs text-blue-600">
+                    Consulta con tu agente de viajes para validar requisitos actualizados.
                   </div>
                 </div>
               </CollapsibleContent>
@@ -382,24 +378,28 @@ function FlightCard({ flight, onSelectFlight }: { flight: Flight; onSelectFlight
   );
 }
 
-export function FlightResults({ flights, onSelectFlight, isLoading = false }: FlightResultsProps) {
-  // Estados para controlar los collapsibles
-  const [isDirectOpen, setIsDirectOpen] = useState(true); // Directos abiertos por defecto
-  const [isConnectingOpen, setIsConnectingOpen] = useState(false); // Escalas cerradas por defecto
+export function FlightResults({
+  flights,
+  onSelectFlight,
+  isLoading = false,
+  emptyState,
+}: FlightResultsProps) {
+  const [isDirectOpen, setIsDirectOpen] = useState(true);
+  const [isConnectingOpen, setIsConnectingOpen] = useState(false);
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
+        {[...Array(3)].map((_, index) => (
+          <Card key={index} className="animate-pulse">
             <CardContent className="p-6">
-              <div className="flex justify-between items-center">
-                <div className="space-y-3 flex-1">
-                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              <div className="flex items-center justify-between">
+                <div className="flex-1 space-y-3">
+                  <div className="h-4 w-1/4 rounded bg-gray-200" />
+                  <div className="h-6 w-1/2 rounded bg-gray-200" />
+                  <div className="h-4 w-1/3 rounded bg-gray-200" />
                 </div>
-                <div className="h-10 bg-gray-200 rounded w-32"></div>
+                <div className="h-10 w-32 rounded bg-gray-200" />
               </div>
             </CardContent>
           </Card>
@@ -412,54 +412,52 @@ export function FlightResults({ flights, onSelectFlight, isLoading = false }: Fl
     return (
       <Card>
         <CardContent className="p-12 text-center">
-          <Plane className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No se encontraron vuelos</h3>
+          <Plane className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <h3 className="mb-2 text-lg font-semibold">
+            {emptyState?.title || "No se encontraron vuelos"}
+          </h3>
           <p className="text-muted-foreground">
-            Intenta modificar tus criterios de búsqueda o fechas
+            {emptyState?.description || "Intenta modificar tus criterios de busqueda o tus fechas."}
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  // Separar vuelos en directos y con escalas
-  const directFlights = flights.filter(flight => flight.route.stops.length === 0);
-  const connectingFlights = flights.filter(flight => flight.route.stops.length > 0);
+  const directFlights = flights.filter((flight) => flight.route.stops.length === 0);
+  const connectingFlights = flights.filter((flight) => flight.route.stops.length > 0);
 
   return (
     <div className="space-y-8">
-      {/* Header principal con totales */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">
-          {flights.length} vuelo{flights.length !== 1 ? 's' : ''} encontrado{flights.length !== 1 ? 's' : ''}
+          {flights.length} vuelo{flights.length !== 1 ? "s" : ""} encontrado
+          {flights.length !== 1 ? "s" : ""}
         </h3>
         <Badge variant="secondary" className="bg-green-100 text-green-800">
-          <TrendingDown className="h-3 w-3 mr-1" />
-          Tarifas B2B Exclusivas
+          <TrendingDown className="mr-1 h-3 w-3" />
+          Tarifas B2B
         </Badge>
       </div>
 
-      {/* Sección de vuelos directos - COLLAPSIBLE */}
       {directFlights.length > 0 && (
         <Collapsible open={isDirectOpen} onOpenChange={setIsDirectOpen}>
           <CollapsibleTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="w-full justify-between p-4 h-auto bg-green-50 border-green-200 hover:bg-green-100 transition-colors"
+            <Button
+              variant="outline"
+              className="h-auto w-full justify-between border-green-200 bg-green-50 p-4 hover:bg-green-100"
             >
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-100 rounded-full">
+                <div className="rounded-full bg-green-100 p-2">
                   <Plane className="h-5 w-5 text-green-600" />
                 </div>
                 <div className="text-left">
-                  <h4 className="text-lg font-semibold text-green-800">
-                    Vuelos Directos
-                  </h4>
+                  <h4 className="text-lg font-semibold text-green-800">Vuelos directos</h4>
                   <p className="text-sm text-green-600">
-                    {directFlights.length} vuelo{directFlights.length !== 1 ? 's' : ''} sin escalas
+                    {directFlights.length} opcion{directFlights.length !== 1 ? "es" : ""} sin escalas
                   </p>
                 </div>
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
                   Sin escalas
                 </Badge>
               </div>
@@ -470,42 +468,40 @@ export function FlightResults({ flights, onSelectFlight, isLoading = false }: Fl
               )}
             </Button>
           </CollapsibleTrigger>
-          
+
           <CollapsibleContent>
-            <div className="mt-4 space-y-4 pl-4 border-l-2 border-green-200">
+            <div className="mt-4 space-y-4 border-l-2 border-green-200 pl-4">
               {directFlights.map((flight) => (
-                <FlightCard 
-                  key={flight.id} 
-                  flight={flight} 
-                  onSelectFlight={onSelectFlight} 
-                />
+                <FlightCard key={flight.id} flight={flight} onSelectFlight={onSelectFlight} />
               ))}
             </div>
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {/* Sección de vuelos con escalas - COLLAPSIBLE */}
       {connectingFlights.length > 0 && (
         <Collapsible open={isConnectingOpen} onOpenChange={setIsConnectingOpen}>
           <CollapsibleTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="w-full justify-between p-4 h-auto bg-orange-50 border-orange-200 hover:bg-orange-100 transition-colors"
+            <Button
+              variant="outline"
+              className="h-auto w-full justify-between border-orange-200 bg-orange-50 p-4 hover:bg-orange-100"
             >
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-orange-100 rounded-full">
+                <div className="rounded-full bg-orange-100 p-2">
                   <MapPin className="h-5 w-5 text-orange-600" />
                 </div>
                 <div className="text-left">
                   <h4 className="text-lg font-semibold text-orange-800">
-                    Vuelos con Escalas
+                    Vuelos con escalas
                   </h4>
                   <p className="text-sm text-orange-600">
-                    {connectingFlights.length} vuelo{connectingFlights.length !== 1 ? 's' : ''} con conexiones
+                    {connectingFlights.length} opcion{connectingFlights.length !== 1 ? "es" : ""} con conexiones
                   </p>
                 </div>
-                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                <Badge
+                  variant="outline"
+                  className="border-orange-200 bg-orange-50 text-orange-700"
+                >
                   Con escalas
                 </Badge>
               </div>
@@ -516,49 +512,44 @@ export function FlightResults({ flights, onSelectFlight, isLoading = false }: Fl
               )}
             </Button>
           </CollapsibleTrigger>
-          
+
           <CollapsibleContent>
-            <div className="mt-4 space-y-4 pl-4 border-l-2 border-orange-200">
+            <div className="mt-4 space-y-4 border-l-2 border-orange-200 pl-4">
               {connectingFlights.map((flight) => (
-                <FlightCard 
-                  key={flight.id} 
-                  flight={flight} 
-                  onSelectFlight={onSelectFlight} 
-                />
+                <FlightCard key={flight.id} flight={flight} onSelectFlight={onSelectFlight} />
               ))}
             </div>
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {/* Mensaje si solo hay un tipo de vuelo */}
       {directFlights.length === 0 && connectingFlights.length > 0 && (
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center space-x-2">
             <Info className="h-4 w-4 text-blue-600" />
-            <span className="text-sm text-blue-800 font-medium">
-              No se encontraron vuelos directos para esta ruta
+            <span className="text-sm font-medium text-blue-800">
+              No se encontraron vuelos directos para esta ruta.
             </span>
           </div>
-          <p className="text-xs text-blue-600 mt-1">
-            Los vuelos con escalas pueden ofrecer mejor precio y más flexibilidad de horarios
+          <p className="mt-1 text-xs text-blue-600">
+            Las conexiones pueden ampliar horarios disponibles y mejorar el precio final.
           </p>
         </div>
       )}
-      
+
       {connectingFlights.length === 0 && directFlights.length > 0 && (
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <span className="text-sm text-green-800 font-medium">
-              Solo vuelos directos disponibles para esta ruta
+            <span className="text-sm font-medium text-green-800">
+              Solo hay vuelos directos disponibles para esta ruta.
             </span>
           </div>
-          <p className="text-xs text-green-600 mt-1">
-            ¡Excelente! Llegarás a tu destino sin paradas intermedias
+          <p className="mt-1 text-xs text-green-600">
+            Llegaras al destino sin conexiones intermedias.
           </p>
         </div>
       )}
     </div>
   );
-} 
+}

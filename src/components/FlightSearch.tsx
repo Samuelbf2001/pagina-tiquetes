@@ -1,219 +1,213 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plane, Users, RotateCcw, MapPin, Globe, ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FlightSearchCriteria } from "@/types/flight";
+import {
+  ArrowLeft,
+  CalendarIcon,
+  Globe,
+  MapPin,
+  Plane,
+  RotateCcw,
+  Users,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type {
+  CabinClass,
+  FlightFlexibility,
+  FlightSearchCriteria,
+  TripType,
+} from "@/types/flight";
 
 interface FlightSearchProps {
   onSearch: (criteria: FlightSearchCriteria) => void;
   isLoading?: boolean;
-  onFlightTypeChange?: (flightType: 'national' | 'international' | null) => void;
+  onFlightTypeChange?: (flightType: "national" | "international" | null) => void;
 }
 
 const internationalAirports = [
-  { code: "BOG", name: "Bogotá", country: "Colombia" },
+  { code: "BOG", name: "Bogota", country: "Colombia" },
   { code: "LHR", name: "Londres", country: "Reino Unido" },
-  { code: "CDG", name: "París", country: "Francia" },
-  { code: "BCN", name: "Barcelona", country: "España" },
-  { code: "MAD", name: "Madrid", country: "España" },
-  { code: "YYZ", name: "Toronto", country: "Canadá" },
-  { code: "SJO", name: "San José", country: "Costa Rica" },
-  { code: "TXL", name: "Berlín", country: "Alemania" },
-  { code: "AMS", name: "Amsterdam", country: "Países Bajos" },
+  { code: "CDG", name: "Paris", country: "Francia" },
+  { code: "BCN", name: "Barcelona", country: "Espana" },
+  { code: "MAD", name: "Madrid", country: "Espana" },
+  { code: "YYZ", name: "Toronto", country: "Canada" },
+  { code: "SJO", name: "San Jose", country: "Costa Rica" },
+  { code: "TXL", name: "Berlin", country: "Alemania" },
+  { code: "AMS", name: "Amsterdam", country: "Paises Bajos" },
   { code: "MIA", name: "Miami", country: "Estados Unidos" },
   { code: "PEK", name: "Beijing", country: "China" },
-  { code: "NRT", name: "Tokio", country: "Japón" },
-  { code: "ICN", name: "Seúl", country: "Corea del Sur" },
+  { code: "NRT", name: "Tokio", country: "Japon" },
+  { code: "ICN", name: "Seul", country: "Corea del Sur" },
   { code: "SIN", name: "Singapur", country: "Singapur" },
-  { code: "DXB", name: "Dubái", country: "Emiratos Árabes Unidos" }
-];
+  { code: "DXB", name: "Dubai", country: "Emiratos Arabes Unidos" },
+] as const;
 
 const nationalAirports = [
-  { code: "BOG", name: "Bogotá - El Dorado", country: "Colombia" },
-  { code: "MDE", name: "Medellín - José María Córdova", country: "Colombia" },
-  { code: "CLO", name: "Cali - Alfonso Bonilla Aragón", country: "Colombia" },
-  { code: "CTG", name: "Cartagena - Rafael Núñez", country: "Colombia" },
+  { code: "BOG", name: "Bogota - El Dorado", country: "Colombia" },
+  { code: "MDE", name: "Medellin - Jose Maria Cordova", country: "Colombia" },
+  { code: "CLO", name: "Cali - Alfonso Bonilla Aragon", country: "Colombia" },
+  { code: "CTG", name: "Cartagena - Rafael Nunez", country: "Colombia" },
   { code: "BAQ", name: "Barranquilla - Ernesto Cortissoz", country: "Colombia" },
   { code: "BGA", name: "Bucaramanga - Palonegro", country: "Colombia" },
-  { code: "PEI", name: "Pereira - Matecaña", country: "Colombia" },
-  { code: "SMR", name: "Santa Marta - Simón Bolívar", country: "Colombia" },
-  { code: "CUC", name: "Cúcuta - Camilo Daza", country: "Colombia" },
-  { code: "VVC", name: "Villavicencio - Vanguardia", country: "Colombia" }
-];
+  { code: "PEI", name: "Pereira - Matecana", country: "Colombia" },
+  { code: "SMR", name: "Santa Marta - Simon Bolivar", country: "Colombia" },
+  { code: "CUC", name: "Cucuta - Camilo Daza", country: "Colombia" },
+  { code: "VVC", name: "Villavicencio - Vanguardia", country: "Colombia" },
+] as const;
 
-export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }: FlightSearchProps) {
-  // Estado para seleccionar tipo de vuelo
-  const [flightType, setFlightType] = useState<'national' | 'international' | null>(null);
-  
-  const [searchCriteria, setSearchCriteria] = useState<FlightSearchCriteria>({
-    origin: "",
-    destination: "",
-    departureDate: "",
-    returnDate: "",
-    passengers: {
-      adults: 1,
-      children: 0,
-      infants: 0
-    },
-    cabinClass: "economy",
-    tripType: "round-trip",
-    flexibility: "exact"
-  });
+const createInitialSearchCriteria = (): FlightSearchCriteria => ({
+  origin: "",
+  destination: "",
+  departureDate: "",
+  returnDate: "",
+  passengers: {
+    adults: 1,
+    children: 0,
+    infants: 0,
+  },
+  cabinClass: "economy",
+  tripType: "round-trip",
+  flexibility: "exact",
+  hasUsVisa: false,
+});
 
+export function FlightSearch({
+  onSearch,
+  isLoading = false,
+  onFlightTypeChange,
+}: FlightSearchProps) {
+  const [flightType, setFlightType] = useState<"national" | "international" | null>(null);
+  const [searchCriteria, setSearchCriteria] = useState<FlightSearchCriteria>(
+    createInitialSearchCriteria()
+  );
   const [departureDate, setDepartureDate] = useState<Date>();
   const [returnDate, setReturnDate] = useState<Date>();
-  const [hasUSVisa, setHasUSVisa] = useState<boolean>(false);
 
-  // Notificar al padre cuando cambie el tipo de vuelo
   useEffect(() => {
     onFlightTypeChange?.(flightType);
   }, [flightType, onFlightTypeChange]);
 
-  // Función para obtener la lista de aeropuertos según el tipo
-  const getAirportsList = () => {
-    return flightType === 'national' ? nationalAirports : internationalAirports;
-  };
-
-  // Función para obtener solo el código del aeropuerto para display
-  const getAirportDisplayName = (code: string) => {
-    const airports = getAirportsList();
-    const airport = airports.find(a => a.code === code);
-    return airport ? airport.code : "";
-  };
-
-  // Función para reiniciar la selección
-  const resetSelection = () => {
-    setFlightType(null);
-    setSearchCriteria({
-      origin: "",
-      destination: "",
-      departureDate: "",
-      returnDate: "",
-      passengers: {
-        adults: 1,
-        children: 0,
-        infants: 0
-      },
-      cabinClass: "economy",
-      tripType: "round-trip",
-      flexibility: "exact"
-    });
-    setDepartureDate(undefined);
-    setReturnDate(undefined);
-    setHasUSVisa(false);
-  };
-
-  const handleSearch = () => {
-    if (!searchCriteria.origin || !searchCriteria.destination || !departureDate) {
-      return;
+  useEffect(() => {
+    if (searchCriteria.tripType === "one-way") {
+      setReturnDate(undefined);
     }
+  }, [searchCriteria.tripType]);
 
-    const criteria: FlightSearchCriteria = {
-      ...searchCriteria,
-      departureDate: format(departureDate, "yyyy-MM-dd"),
-      returnDate: returnDate ? format(returnDate, "yyyy-MM-dd") : undefined
-    };
+  const airports = flightType === "national" ? nationalAirports : internationalAirports;
+  const totalPassengers =
+    searchCriteria.passengers.adults +
+    searchCriteria.passengers.children +
+    searchCriteria.passengers.infants;
+  const requiresReturnDate = searchCriteria.tripType === "round-trip";
+  const hasSameAirport = searchCriteria.origin !== "" && searchCriteria.origin === searchCriteria.destination;
+  const isSearchDisabled =
+    isLoading ||
+    !searchCriteria.origin ||
+    !searchCriteria.destination ||
+    !departureDate ||
+    hasSameAirport ||
+    (requiresReturnDate && !returnDate);
 
-    // Información adicional para el contexto de búsqueda
-    const searchContext = {
-      criteria,
-      flightType,
-      hasUSVisa: flightType === 'international' ? hasUSVisa : null
-    };
-
-    onSearch(criteria);
-    
-    // Log para debugging (opcional)
-    console.log('Búsqueda iniciada:', searchContext);
-  };
-
-  const swapAirports = () => {
-    setSearchCriteria(prev => ({
-      ...prev,
-      origin: prev.destination,
-      destination: prev.origin
+  const updateSearchCriteria = (partialCriteria: Partial<FlightSearchCriteria>) => {
+    setSearchCriteria((currentCriteria) => ({
+      ...currentCriteria,
+      ...partialCriteria,
     }));
   };
 
-  const totalPassengers = searchCriteria.passengers.adults + searchCriteria.passengers.children + searchCriteria.passengers.infants;
+  const resetSelection = () => {
+    setFlightType(null);
+    setSearchCriteria(createInitialSearchCriteria());
+    setDepartureDate(undefined);
+    setReturnDate(undefined);
+  };
 
-  // Si no se ha seleccionado el tipo de vuelo, mostrar la selección inicial
+  const handleSearch = () => {
+    if (isSearchDisabled) {
+      return;
+    }
+
+    onSearch({
+      ...searchCriteria,
+      departureDate: format(departureDate!, "yyyy-MM-dd"),
+      returnDate:
+        requiresReturnDate && returnDate ? format(returnDate, "yyyy-MM-dd") : undefined,
+      hasUsVisa: flightType === "international" ? Boolean(searchCriteria.hasUsVisa) : undefined,
+    });
+  };
+
+  const swapAirports = () => {
+    updateSearchCriteria({
+      origin: searchCriteria.destination,
+      destination: searchCriteria.origin,
+    });
+  };
+
   if (!flightType) {
     return (
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Plane className="h-6 w-6 mr-2 text-primary" />
-            Búsqueda de Vuelos - Tarifas B2B
+            <Plane className="mr-2 h-6 w-6 text-primary" />
+            Busqueda de vuelos B2B
           </CardTitle>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           <div className="text-center">
-            <h3 className="text-lg font-semibold mb-2">¿Qué tipo de vuelo necesitas?</h3>
-            <p className="text-muted-foreground mb-6">
-              Selecciona el tipo de vuelo para acceder a las mejores tarifas
+            <h3 className="mb-2 text-lg font-semibold">Que tipo de vuelo necesitas?</h3>
+            <p className="text-muted-foreground">
+              Elige entre rutas nacionales o internacionales para cargar el formulario adecuado.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {/* Vuelos Nacionales */}
-            <Card className="cursor-pointer hover:shadow-md transition-all duration-300 hover:border-primary">
-              <CardContent 
-                className="p-6 text-center space-y-4"
-                onClick={() => setFlightType('national')}
+            <Card className="cursor-pointer border transition-all duration-300 hover:border-primary hover:shadow-md">
+              <CardContent
+                className="space-y-4 p-6 text-center"
+                onClick={() => setFlightType("national")}
               >
                 <div className="flex justify-center">
-                  <div className="p-3 bg-blue-100 rounded-full">
+                  <div className="rounded-full bg-blue-100 p-3">
                     <MapPin className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-base mb-2">Vuelos Nacionales</h4>
-                  <p className="text-sm text-muted-foreground leading-tight">
-                    Destinos dentro de Colombia
-                  </p>
+                  <h4 className="mb-2 font-semibold">Vuelos nacionales</h4>
+                  <p className="text-sm text-muted-foreground">Rutas dentro de Colombia</p>
                 </div>
-                <div className="pt-2">
-                  <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
-                    Desde $150.000 COP
-                  </span>
-                </div>
+                <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                  Tarifas B2B desde $150.000 COP
+                </span>
               </CardContent>
             </Card>
 
-            {/* Vuelos Internacionales */}
-            <Card className="cursor-pointer hover:shadow-md transition-all duration-300 hover:border-primary">
-              <CardContent 
-                className="p-6 text-center space-y-4"
-                onClick={() => setFlightType('international')}
+            <Card className="cursor-pointer border transition-all duration-300 hover:border-primary hover:shadow-md">
+              <CardContent
+                className="space-y-4 p-6 text-center"
+                onClick={() => setFlightType("international")}
               >
                 <div className="flex justify-center">
-                  <div className="p-3 bg-purple-100 rounded-full">
-                    <Globe className="h-6 w-6 text-purple-600" />
+                  <div className="rounded-full bg-slate-100 p-3">
+                    <Globe className="h-6 w-6 text-slate-700" />
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-base mb-2">Vuelos Internacionales</h4>
-                  <p className="text-sm text-muted-foreground leading-tight">
-                    Destinos alrededor del mundo
-                  </p>
+                  <h4 className="mb-2 font-semibold">Vuelos internacionales</h4>
+                  <p className="text-sm text-muted-foreground">Destinos para programas y viajes</p>
                 </div>
-                <div className="pt-2">
-                  <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
-                    Tarifas B2B exclusivas
-                  </span>
-                </div>
+                <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                  Tarifas negociadas para agencias
+                </span>
               </CardContent>
             </Card>
           </div>
@@ -227,8 +221,8 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
-            <Plane className="h-6 w-6 mr-2 text-primary" />
-            Búsqueda de Vuelos - {flightType === 'national' ? 'Nacionales' : 'Internacionales'}
+            <Plane className="mr-2 h-6 w-6 text-primary" />
+            {flightType === "national" ? "Vuelos nacionales" : "Vuelos internacionales"}
           </div>
           <Button
             variant="ghost"
@@ -236,47 +230,47 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
             onClick={resetSelection}
             className="text-muted-foreground hover:text-primary"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" />
+            <ArrowLeft className="mr-1 h-4 w-4" />
             Cambiar tipo
           </Button>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
-        {/* Tipo de viaje */}
         <div className="space-y-3">
           <Label className="text-sm font-medium">Tipo de viaje</Label>
           <RadioGroup
             value={searchCriteria.tripType}
-            onValueChange={(value: any) => setSearchCriteria(prev => ({ ...prev, tripType: value }))}
+            onValueChange={(value: TripType) => updateSearchCriteria({ tripType: value })}
             className="flex space-x-6"
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="round-trip" id="round-trip" />
-              <label htmlFor="round-trip" className="text-sm">Ida y vuelta</label>
+              <label htmlFor="round-trip" className="text-sm">
+                Ida y vuelta
+              </label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="one-way" id="one-way" />
-              <label htmlFor="one-way" className="text-sm">Solo ida</label>
+              <label htmlFor="one-way" className="text-sm">
+                Solo ida
+              </label>
             </div>
           </RadioGroup>
         </div>
 
-        {/* Origen y Destino */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
           <div className="space-y-2">
             <Label>Origen</Label>
             <Select
               value={searchCriteria.origin}
-              onValueChange={(value) => setSearchCriteria(prev => ({ ...prev, origin: value }))}
+              onValueChange={(value) => updateSearchCriteria({ origin: value })}
             >
               <SelectTrigger>
-                <div className="flex items-center justify-between w-full">
-                  <span>{searchCriteria.origin || "Selecciona origen"}</span>
-                </div>
+                <span>{searchCriteria.origin || "Selecciona origen"}</span>
               </SelectTrigger>
               <SelectContent>
-                {getAirportsList().map(airport => (
+                {airports.map((airport) => (
                   <SelectItem key={airport.code} value={airport.code}>
                     {airport.code} - {airport.name}, {airport.country}
                   </SelectItem>
@@ -290,7 +284,8 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
               variant="ghost"
               size="sm"
               onClick={swapAirports}
-              className="h-10 w-10 p-0 rounded-full"
+              className="h-10 w-10 rounded-full p-0"
+              disabled={!searchCriteria.origin && !searchCriteria.destination}
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
@@ -300,15 +295,13 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
             <Label>Destino</Label>
             <Select
               value={searchCriteria.destination}
-              onValueChange={(value) => setSearchCriteria(prev => ({ ...prev, destination: value }))}
+              onValueChange={(value) => updateSearchCriteria({ destination: value })}
             >
               <SelectTrigger>
-                <div className="flex items-center justify-between w-full">
-                  <span>{searchCriteria.destination || "Selecciona destino"}</span>
-                </div>
+                <span>{searchCriteria.destination || "Selecciona destino"}</span>
               </SelectTrigger>
               <SelectContent>
-                {getAirportsList().map(airport => (
+                {airports.map((airport) => (
                   <SelectItem key={airport.code} value={airport.code}>
                     {airport.code} - {airport.name}, {airport.country}
                   </SelectItem>
@@ -318,8 +311,13 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
           </div>
         </div>
 
-        {/* Fechas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {hasSameAirport && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            El origen y el destino deben ser diferentes para iniciar la busqueda.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Fecha de salida</Label>
             <Popover>
@@ -332,7 +330,9 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {departureDate ? format(departureDate, "PPP", { locale: es }) : "Selecciona fecha"}
+                  {departureDate
+                    ? format(departureDate, "PPP", { locale: es })
+                    : "Selecciona fecha"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -347,7 +347,7 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
             </Popover>
           </div>
 
-          {searchCriteria.tripType === "round-trip" && (
+          {requiresReturnDate && (
             <div className="space-y-2">
               <Label>Fecha de regreso</Label>
               <Popover>
@@ -360,7 +360,9 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {returnDate ? format(returnDate, "PPP", { locale: es }) : "Selecciona fecha"}
+                    {returnDate
+                      ? format(returnDate, "PPP", { locale: es })
+                      : "Selecciona fecha"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -377,102 +379,70 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
           )}
         </div>
 
-        {/* Pasajeros y Clase */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Pasajeros</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start">
                   <Users className="mr-2 h-4 w-4" />
-                  {totalPassengers} pasajero{totalPassengers !== 1 ? 's' : ''}
+                  {totalPassengers} pasajero{totalPassengers !== 1 ? "s" : ""}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Adultos</Label>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSearchCriteria(prev => ({
-                          ...prev,
-                          passengers: { ...prev.passengers, adults: Math.max(1, prev.passengers.adults - 1) }
-                        }))}
-                        disabled={searchCriteria.passengers.adults <= 1}
-                      >
-                        -
-                      </Button>
-                      <span className="w-8 text-center">{searchCriteria.passengers.adults}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSearchCriteria(prev => ({
-                          ...prev,
-                          passengers: { ...prev.passengers, adults: prev.passengers.adults + 1 }
-                        }))}
-                      >
-                        +
-                      </Button>
+                  {([
+                    { key: "adults", label: "Adultos", min: 1 },
+                    { key: "children", label: "Ninos (2-11 anos)", min: 0 },
+                    { key: "infants", label: "Bebes (0-2 anos)", min: 0 },
+                  ] as const).map((passengerType) => (
+                    <div
+                      key={passengerType.key}
+                      className="flex items-center justify-between"
+                    >
+                      <Label>{passengerType.label}</Label>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            updateSearchCriteria({
+                              passengers: {
+                                ...searchCriteria.passengers,
+                                [passengerType.key]: Math.max(
+                                  passengerType.min,
+                                  searchCriteria.passengers[passengerType.key] - 1
+                                ),
+                              },
+                            })
+                          }
+                          disabled={
+                            searchCriteria.passengers[passengerType.key] <= passengerType.min
+                          }
+                        >
+                          -
+                        </Button>
+                        <span className="w-8 text-center">
+                          {searchCriteria.passengers[passengerType.key]}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            updateSearchCriteria({
+                              passengers: {
+                                ...searchCriteria.passengers,
+                                [passengerType.key]:
+                                  searchCriteria.passengers[passengerType.key] + 1,
+                              },
+                            })
+                          }
+                        >
+                          +
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label>Niños (2-11 años)</Label>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSearchCriteria(prev => ({
-                          ...prev,
-                          passengers: { ...prev.passengers, children: Math.max(0, prev.passengers.children - 1) }
-                        }))}
-                        disabled={searchCriteria.passengers.children <= 0}
-                      >
-                        -
-                      </Button>
-                      <span className="w-8 text-center">{searchCriteria.passengers.children}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSearchCriteria(prev => ({
-                          ...prev,
-                          passengers: { ...prev.passengers, children: prev.passengers.children + 1 }
-                        }))}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label>Bebés (0-2 años)</Label>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSearchCriteria(prev => ({
-                          ...prev,
-                          passengers: { ...prev.passengers, infants: Math.max(0, prev.passengers.infants - 1) }
-                        }))}
-                        disabled={searchCriteria.passengers.infants <= 0}
-                      >
-                        -
-                      </Button>
-                      <span className="w-8 text-center">{searchCriteria.passengers.infants}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSearchCriteria(prev => ({
-                          ...prev,
-                          passengers: { ...prev.passengers, infants: prev.passengers.infants + 1 }
-                        }))}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </PopoverContent>
             </Popover>
@@ -482,79 +452,98 @@ export function FlightSearch({ onSearch, isLoading = false, onFlightTypeChange }
             <Label>Clase de servicio</Label>
             <Select
               value={searchCriteria.cabinClass}
-              onValueChange={(value: any) => setSearchCriteria(prev => ({ ...prev, cabinClass: value }))}
+              onValueChange={(value: CabinClass) => updateSearchCriteria({ cabinClass: value })}
             >
               <SelectTrigger>
-                <SelectValue />
+                <span>
+                  {searchCriteria.cabinClass === "economy"
+                    ? "Economica"
+                    : searchCriteria.cabinClass === "premium-economy"
+                      ? "Premium Economy"
+                      : searchCriteria.cabinClass === "business"
+                        ? "Ejecutiva"
+                        : "Primera clase"}
+                </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="economy">Económica</SelectItem>
+                <SelectItem value="economy">Economica</SelectItem>
                 <SelectItem value="premium-economy">Premium Economy</SelectItem>
                 <SelectItem value="business">Ejecutiva</SelectItem>
-                <SelectItem value="first">Primera Clase</SelectItem>
+                <SelectItem value="first">Primera clase</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Flexibilidad de fechas */}
         <div className="space-y-2">
           <Label>Flexibilidad de fechas</Label>
           <Select
             value={searchCriteria.flexibility}
-            onValueChange={(value: any) => setSearchCriteria(prev => ({ ...prev, flexibility: value }))}
+            onValueChange={(value: FlightFlexibility) => updateSearchCriteria({ flexibility: value })}
           >
             <SelectTrigger>
-              <SelectValue />
+              <span>
+                {searchCriteria.flexibility === "exact"
+                  ? "Fechas exactas"
+                  : searchCriteria.flexibility === "plus-minus-1"
+                    ? "+/- 1 dia"
+                    : "+/- 3 dias"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="exact">Fechas exactas</SelectItem>
-              <SelectItem value="plus-minus-1">± 1 día</SelectItem>
-              <SelectItem value="plus-minus-3">± 3 días</SelectItem>
+              <SelectItem value="plus-minus-1">+/- 1 dia</SelectItem>
+              <SelectItem value="plus-minus-3">+/- 3 dias</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Visa Americana - Solo para vuelos internacionales */}
-        {flightType === 'international' && (
-          <div className="space-y-3">
+        {flightType === "international" && (
+          <div className="space-y-3 rounded-lg border bg-blue-50/50 p-4">
             <Label className="text-sm font-medium">Requisitos</Label>
-            <div className="flex items-center space-x-2 p-3 border rounded-lg bg-blue-50/50">
+            <div className="flex items-start space-x-3">
               <Checkbox
                 id="us-visa"
-                checked={hasUSVisa}
-                onCheckedChange={(checked) => setHasUSVisa(checked as boolean)}
+                checked={Boolean(searchCriteria.hasUsVisa)}
+                onCheckedChange={(checked) =>
+                  updateSearchCriteria({ hasUsVisa: Boolean(checked) })
+                }
               />
-              <label
-                htmlFor="us-visa"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                ¿Tienes visa americana vigente?
-              </label>
+              <div>
+                <label
+                  htmlFor="us-visa"
+                  className="cursor-pointer text-sm font-medium leading-none"
+                >
+                  Tengo visa americana vigente
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Si esta casilla no esta marcada, ocultaremos rutas con ingreso o escala
+                  por Estados Unidos.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Botón de búsqueda */}
-        <Button 
+        <Button
           onClick={handleSearch}
-          className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
+          className="w-full bg-gradient-primary transition-all duration-300 hover:shadow-glow"
           size="lg"
-          disabled={isLoading || !searchCriteria.origin || !searchCriteria.destination || !departureDate}
+          disabled={isSearchDisabled}
         >
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
               Buscando vuelos...
             </>
           ) : (
             <>
-              <Plane className="h-4 w-4 mr-2" />
-              Buscar Vuelos
+              <Plane className="mr-2 h-4 w-4" />
+              Buscar vuelos
             </>
           )}
         </Button>
       </CardContent>
     </Card>
   );
-} 
+}
