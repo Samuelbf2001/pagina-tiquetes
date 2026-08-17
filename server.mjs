@@ -13,30 +13,151 @@ const __dirname = path.dirname(__filename);
 const isProduction = process.argv.includes("--prod");
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 4173);
-const geminiApiKey = process.env.GEMINI_API_KEY;
-const geminiModel = process.env.GEMINI_MODEL || "gemini-3.1-pro-preview";
-const supportedAirportCodes = [
-  "BOG",
-  "MDE",
-  "CLO",
-  "CTG",
-  "BAQ",
-  "BGA",
-  "PEI",
-  "SMR",
-  "CUC",
-  "VVC",
-  "MIA",
-  "MAD",
-  "CDG",
-  "LHR",
-  "AMS",
-  "PEK",
-  "NRT",
-  "ICN",
-  "DXB",
-  "SJO",
-];
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openaiModel = process.env.OPENAI_MODEL || "gpt-5.6-luna";
+const openaiReasoningEffort = process.env.OPENAI_REASONING_EFFORT || "high";
+
+const airportSchema = (extraDescription = "") => ({
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    code: {
+      type: "string",
+      description: `Codigo IATA real de tres letras del aeropuerto. ${extraDescription}`.trim(),
+    },
+    name: {
+      type: "string",
+      description: "Nombre del aeropuerto, por ejemplo Aeropuerto Internacional El Dorado.",
+    },
+    city: {
+      type: "string",
+      description: "Ciudad del aeropuerto en espanol sin tildes.",
+    },
+    country: {
+      type: "string",
+      description: "Pais del aeropuerto en espanol sin tildes.",
+    },
+  },
+  required: ["code", "name", "city", "country"],
+});
+
+const flightOptionSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    airline: {
+      type: "string",
+      description: "Nombre de la aerolinea, plausible para la ruta.",
+    },
+    airlineCode: {
+      type: "string",
+      description: "Codigo IATA de la aerolinea, dos caracteres, por ejemplo AV, IB, TK.",
+    },
+    flightNumber: {
+      type: "string",
+      description: "Numero de vuelo, por ejemplo AV245 o TK801.",
+    },
+    aircraft: {
+      type: "string",
+      description: "Equipo del vuelo, por ejemplo Boeing 787-9 o Airbus A350-900.",
+    },
+    origin: airportSchema("Debe corresponder al origen del pasajero."),
+    destination: airportSchema("Debe corresponder al destino solicitado."),
+    stops: {
+      type: "array",
+      description:
+        "Escalas intermedias en orden. Vacio para vuelos directos. Maximo dos escalas por opcion.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          code: { type: "string", description: "Codigo IATA real de tres letras de la escala." },
+          name: { type: "string", description: "Nombre del aeropuerto de escala." },
+          city: { type: "string", description: "Ciudad de la escala en espanol sin tildes." },
+          country: { type: "string", description: "Pais de la escala en espanol sin tildes." },
+          layoverDuration: {
+            type: "string",
+            description: "Duracion de la conexion con formato Xh Ym, por ejemplo 2h 15m.",
+          },
+        },
+        required: ["code", "name", "city", "country", "layoverDuration"],
+      },
+    },
+    durationTotal: {
+      type: "string",
+      description:
+        "Duracion total puerta a puerta con formato Xh Ym, por ejemplo 14h 25m. Debe ser coherente con la distancia y las escalas.",
+    },
+    departureDate: {
+      type: "string",
+      description:
+        "Fecha de salida en formato YYYY-MM-DD. Debe ser futura y coherente con lo que pidio el usuario.",
+    },
+    departureTime: {
+      type: "string",
+      description: "Hora local de salida en formato de 24 horas HH:MM, por ejemplo 23:45.",
+    },
+    arrivalDate: {
+      type: "string",
+      description:
+        "Fecha de llegada en formato YYYY-MM-DD. Igual o posterior a departureDate segun la duracion.",
+    },
+    arrivalTime: {
+      type: "string",
+      description: "Hora local de llegada en formato de 24 horas HH:MM.",
+    },
+    currency: {
+      type: "string",
+      description: "Moneda de la tarifa con codigo ISO de tres letras, normalmente USD.",
+    },
+    publicPrice: {
+      type: "number",
+      description: "Tarifa publica por pasajero, sin impuestos, mayor que agencyPrice.",
+    },
+    agencyPrice: {
+      type: "number",
+      description: "Tarifa neta de agencia por pasajero, siempre menor que publicPrice.",
+    },
+    seatsAvailable: {
+      type: "integer",
+      description: "Asientos disponibles en la clase cotizada, entre 1 y 40.",
+    },
+    cabinClass: {
+      type: "string",
+      enum: ["economy", "premium-economy", "business", "first"],
+      description: "Cabina de la opcion cotizada.",
+    },
+    baggageIncluded: {
+      type: "boolean",
+      description: "True si la tarifa incluye equipaje en bodega.",
+    },
+    refundable: {
+      type: "boolean",
+      description: "True si la tarifa es reembolsable.",
+    },
+  },
+  required: [
+    "airline",
+    "airlineCode",
+    "flightNumber",
+    "aircraft",
+    "origin",
+    "destination",
+    "stops",
+    "durationTotal",
+    "departureDate",
+    "departureTime",
+    "arrivalDate",
+    "arrivalTime",
+    "currency",
+    "publicPrice",
+    "agencyPrice",
+    "seatsAvailable",
+    "cabinClass",
+    "baggageIncluded",
+    "refundable",
+  ],
+};
 
 const chatResponseSchema = {
   type: "object",
@@ -84,12 +205,13 @@ const chatResponseSchema = {
       properties: {
         origin: {
           type: ["string", "null"],
-          description: "Codigo IATA de origen si es reconocible. Usa solo codigos soportados.",
+          description:
+            "Codigo IATA de origen si es reconocible. Puede ser cualquier aeropuerto real del mundo.",
         },
         destination: {
           type: ["string", "null"],
           description:
-            "Codigo IATA del destino solicitado si es reconocible. Puede ser soportado o un codigo solicitado por el usuario.",
+            "Codigo IATA del destino solicitado si es reconocible. Puede ser cualquier aeropuerto real del mundo.",
         },
         destinationLabel: {
           type: ["string", "null"],
@@ -99,24 +221,12 @@ const chatResponseSchema = {
           type: ["string", "null"],
           description: "Pais visible del destino solicitado si es claro por contexto.",
         },
-        simulationDestination: {
-          type: ["string", "null"],
-          description:
-            "Codigo IATA soportado que servira como base interna para generar opciones demo cuando el destino real no este soportado.",
-        },
-        simulationOrigin: {
-          type: ["string", "null"],
-          description:
-            "Codigo IATA soportado que servira como base interna para generar opciones demo cuando el origen real no este soportado.",
-        },
         departureDate: {
           type: ["string", "null"],
-          format: "date",
           description: "Fecha exacta de salida en formato YYYY-MM-DD si el usuario la dio.",
         },
         returnDate: {
           type: ["string", "null"],
-          format: "date",
           description: "Fecha exacta de regreso en formato YYYY-MM-DD si aplica y el usuario la dio.",
         },
         tripType: {
@@ -131,18 +241,15 @@ const chatResponseSchema = {
         },
         adults: {
           type: "integer",
-          minimum: 0,
-          description: "Cantidad de adultos. Usa 1 por defecto si no se especifica.",
+          description: "Cantidad de adultos, cero o mas. Usa 1 por defecto si no se especifica.",
         },
         children: {
           type: "integer",
-          minimum: 0,
-          description: "Cantidad de ninos. Usa 0 por defecto.",
+          description: "Cantidad de ninos, cero o mas. Usa 0 por defecto.",
         },
         infants: {
           type: "integer",
-          minimum: 0,
-          description: "Cantidad de infantes. Usa 0 por defecto.",
+          description: "Cantidad de infantes, cero o mas. Usa 0 por defecto.",
         },
         hasUsVisa: {
           type: ["boolean", "null"],
@@ -155,8 +262,6 @@ const chatResponseSchema = {
         "destination",
         "destinationLabel",
         "destinationCountry",
-        "simulationDestination",
-        "simulationOrigin",
         "departureDate",
         "returnDate",
         "tripType",
@@ -167,8 +272,22 @@ const chatResponseSchema = {
         "hasUsVisa",
       ],
     },
+    flightOptions: {
+      type: "array",
+      description:
+        "Opciones de vuelo inventadas para la demo. Debe traer entre 6 y 12 opciones cuando showFlightOptions sea true, y quedar vacio cuando sea false.",
+      items: flightOptionSchema,
+    },
   },
-  required: ["reply", "intent", "showFlightOptions", "searchMode", "missingFields", "search"],
+  required: [
+    "reply",
+    "intent",
+    "showFlightOptions",
+    "searchMode",
+    "missingFields",
+    "search",
+    "flightOptions",
+  ],
 };
 
 const app = express();
@@ -176,29 +295,35 @@ app.disable("x-powered-by");
 app.set("trust proxy", true);
 app.use(express.json({ limit: "1mb" }));
 
-const createGeminiContents = (history = [], message = "") => {
-  const contents = history
+const createOpenAiInput = (history = [], message = "") => {
+  const input = history
     .filter((entry) => entry && typeof entry.content === "string" && entry.content.trim() !== "")
     .map((entry) => ({
-      role: entry.role === "assistant" ? "model" : "user",
-      parts: [{ text: entry.content }],
+      role: entry.role === "assistant" ? "assistant" : "user",
+      content: entry.content,
     }));
 
   if (message.trim()) {
-    contents.push({
+    input.push({
       role: "user",
-      parts: [{ text: message }],
+      content: message,
     });
   }
 
-  return contents;
+  return input;
 };
 
-const extractTextFromGeminiResponse = (payload) => {
-  const candidate = payload?.candidates?.[0];
-  const parts = candidate?.content?.parts ?? [];
-  const text = parts
-    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+const extractTextFromOpenAiResponse = (payload) => {
+  if (typeof payload?.output_text === "string" && payload.output_text.trim() !== "") {
+    return payload.output_text.trim();
+  }
+
+  const output = Array.isArray(payload?.output) ? payload.output : [];
+  const text = output
+    .filter((item) => item?.type === "message")
+    .flatMap((item) => (Array.isArray(item.content) ? item.content : []))
+    .filter((part) => part?.type === "output_text" && typeof part.text === "string")
+    .map((part) => part.text)
     .join("\n")
     .trim();
 
@@ -229,24 +354,23 @@ const buildSystemInstruction = (compact = false) => {
   if (compact) {
     return [
       "Eres un agente de viajes B2B para programas educativos.",
-      "Responde en espanol claro y breve.",
+      "Responde en espanol claro y breve, sin tildes.",
       "Devuelve un JSON valido siguiendo exactamente el schema.",
+      `Hoy es ${today}.`,
       "Si reconoces un destino de vuelos, usa showFlightOptions=true.",
       "Usa searchMode='reference' si faltan origen o fechas pero aun sirve mostrar opciones.",
-      "No inventes fechas exactas no dadas por el usuario.",
-      "Si no conoces el origen, deja origin=null.",
-      "Esto es una demo, asi que nunca respondas que no hay rutas o que el sistema no soporta un destino.",
-      "Si el destino pedido no esta soportado internamente, igual debes devolver ejemplos simulados.",
-      "En esos casos, conserva el destino pedido en destination o destinationLabel y elige simulationDestination con un hub soportado parecido para generar la demo.",
-      "Mapeos: Corea del Sur, Seul, Seoul, Incheon => ICN; Japon, Tokio, Tokyo, Narita => NRT; China, Pekin, Beijing => PEK; Madrid => MAD; Paris => CDG; Londres => LHR; Amsterdam => AMS; Miami => MIA; Dubai => DXB; San Jose Costa Rica => SJO.",
-      "Ejemplos de simulacion: Estambul o Turquia => simulationDestination DXB, MAD o CDG; Berlin o Alemania => LHR, AMS o CDG; Roma o Italia => MAD o CDG.",
-      `Usa solo estos IATA: ${supportedAirportCodes.join(", ")}.`,
+      "No inventes fechas exactas no dadas por el usuario en el objeto search.",
+      "Si no conoces el origen, deja search.origin=null y usa BOG como origen de las opciones.",
+      "Esto es una demo, asi que nunca respondas que no hay rutas o que el destino no esta disponible.",
+      "Puedes usar cualquier codigo IATA real del mundo.",
+      "Cuando showFlightOptions sea true, inventa entre 6 y 8 opciones en flightOptions con aerolineas plausibles para la ruta, mezcla de directos y con escalas, precios coherentes y agencyPrice siempre menor que publicPrice.",
+      "Cuando showFlightOptions sea false, deja flightOptions vacio.",
     ].join(" ");
   }
 
   return [
     "Eres un agente de viajes B2B especializado en programas educativos.",
-    "Siempre respondes en espanol claro, breve y util.",
+    "Siempre respondes en espanol claro, breve y util, sin tildes.",
     `Hoy es ${today}. Si el usuario usa fechas relativas, aclara la fecha absoluta solo si es necesaria.`,
     "Debes devolver un JSON valido que siga exactamente el schema solicitado.",
     "Tu campo reply debe ser natural para el usuario y no debe mencionar JSON ni estructura interna.",
@@ -254,61 +378,57 @@ const buildSystemInstruction = (compact = false) => {
     "Si ya hay un destino reconocible, activa showFlightOptions=true para que la interfaz muestre tarjetas o una lista debajo del chat.",
     "Usa searchMode='reference' cuando falten origen o fechas exactas pero aun asi sea util mostrar opciones de referencia.",
     "Usa searchMode='exact' cuando ya tengas al menos destino y una salida suficientemente concreta para una simulacion util.",
-    "No inventes fechas exactas que el usuario no haya dado. Si falta una fecha exacta, dejala en null y agregala en missingFields.",
-    "No inventes origen o destino si no son identificables. Si solo reconoces el destino, puedes dejar origin=null y mantener showFlightOptions=true con searchMode='reference'.",
+    "En el objeto search no inventes fechas exactas que el usuario no haya dado. Si falta una fecha exacta, dejala en null y agregala en missingFields.",
+    "En el objeto search no inventes origen o destino si no son identificables. Si solo reconoces el destino, deja origin=null y manten showFlightOptions=true con searchMode='reference'.",
+    "Puedes usar cualquier codigo IATA real del mundo, sin lista blanca ni destinos soportados.",
     "Esto es una demo comercial, no un inventario real. Nunca respondas que no hay rutas, que no tenemos ese destino o que el sistema no lo soporta.",
-    "Siempre que el usuario pida un destino, debes intentar mostrar ejemplos simulados de como se verian las opciones.",
-    "Si el destino real no esta soportado internamente, guarda el nombre pedido en destinationLabel y usa simulationDestination con un hub soportado parecido para generar la demo.",
-    "Si el usuario menciona un pais o ciudad que corresponde claramente a uno de los destinos soportados, mapealo al aeropuerto principal soportado.",
-    "Mapeos importantes: Corea del Sur, Seul, Seoul e Incheon => ICN; Japon, Tokio, Tokyo, Narita => NRT; China, Pekin, Beijing => PEK; Espana, Madrid => MAD; Francia, Paris => CDG; Reino Unido, Londres => LHR; Paises Bajos, Amsterdam => AMS; Estados Unidos, Miami => MIA; Emiratos Arabes Unidos, Dubai => DXB; Costa Rica, San Jose => SJO.",
-    "Ejemplos de fallback para demo: Estambul o Turquia => simulationDestination DXB, MAD o CDG; Berlin o Alemania => LHR, AMS o CDG; Roma o Italia => MAD o CDG.",
-    `Solo puedes usar estos codigos IATA soportados: ${supportedAirportCodes.join(", ")}.`,
+    "Las opciones de flightOptions las inventas tu por completo: son ejemplos ilustrativos, no inventario real.",
+    "Cuando showFlightOptions sea true debes llenar flightOptions con entre 6 y 12 opciones realistas y variadas para la ruta pedida.",
+    "Cuando showFlightOptions sea false, flightOptions debe quedar como un arreglo vacio.",
+    "Reglas para inventar las opciones: usa aerolineas que realmente operan o conectan esa ruta y sus codigos IATA correctos; mezcla al menos una opcion directa cuando la ruta lo permita y varias con una o dos escalas en hubs logicos; varia horarios, equipos y duraciones de forma coherente con la distancia.",
+    "Reglas de precio: usa una sola moneda por respuesta, normalmente USD; manten un rango coherente para la ruta y la temporada; agencyPrice siempre menor que publicPrice, con un descuento aproximado entre 10 y 30 por ciento; las opciones directas o de cabina superior deben costar mas que las de varias escalas en economy.",
+    "Reglas de fechas: departureDate siempre futura respecto de hoy y coherente con lo que pidio el usuario. Si el usuario dio un mes sin dia, reparte las salidas en dias distintos dentro de ese mes. Si no dio fecha, usa salidas dentro de los proximos 30 a 60 dias. arrivalDate y arrivalTime deben ser coherentes con departureDate, departureTime y durationTotal, incluyendo cambios de dia en vuelos largos.",
+    "Reglas de origen: si el usuario no dio origen, usa BOG (Bogota, Colombia) como origen de todas las opciones y aclara en reply que puedes recotizar desde otra ciudad.",
+    "Todas las opciones de una misma respuesta deben compartir el mismo par origen y destino.",
     "Si el usuario no especifica pasajeros, usa 1 adulto, 0 ninos y 0 infantes.",
-    "Si el usuario no especifica cabina, usa economy.",
-    "Si el usuario no especifica regreso, usa tripType='one-way'.",
+    "Si el usuario no especifica cabina, usa economy en search y sobre todo opciones en economy, con una o dos alternativas de cabina superior.",
+    "Si el usuario no especifica regreso, usa tripType='one-way' y cotiza solo el trayecto de ida.",
     "hasUsVisa solo debe ser true o false si el usuario lo confirma; en otro caso usa null.",
-    "Cuando falten datos importantes para cerrar una cotizacion, pidelos en reply de forma concreta.",
+    "Cuando falten datos importantes para cerrar una cotizacion, pidelos en reply de forma concreta, pero igual muestra las opciones.",
+    "Si el mensaje es un saludo o una pregunta general sin destino, responde conversacional con showFlightOptions=false, searchMode='none', intent='general' y flightOptions vacio.",
   ].join(" ");
 };
 
-const buildGenerationConfig = () => ({
-  responseMimeType: "application/json",
-  responseJsonSchema: chatResponseSchema,
-  thinkingConfig: {
-    thinkingLevel: "low",
+const buildTextFormat = () => ({
+  format: {
+    type: "json_schema",
+    name: "chat_response",
+    strict: true,
+    schema: chatResponseSchema,
   },
-  temperature: 0.2,
-  topP: 0.8,
-  maxOutputTokens: 4096,
 });
 
-const requestGeminiChat = async ({ message, history = [], compactInstruction = false }) => {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": geminiApiKey,
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [
-            {
-              text: buildSystemInstruction(compactInstruction),
-            },
-          ],
-        },
-        contents: createGeminiContents(history, message),
-        generationConfig: buildGenerationConfig(),
-      }),
-    }
-  );
+const requestOpenAiChat = async ({ message, history = [], compactInstruction = false }) => {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: openaiModel,
+      instructions: buildSystemInstruction(compactInstruction),
+      input: createOpenAiInput(history, message),
+      reasoning: { effort: openaiReasoningEffort },
+      max_output_tokens: compactInstruction ? 16384 : 24576,
+      text: buildTextFormat(),
+    }),
+  });
 
   const payload = await response.json();
-  const text = extractTextFromGeminiResponse(payload);
+  const text = extractTextFromOpenAiResponse(payload);
   const structuredResponse = parseStructuredResponse(text);
-  const finishReason = payload?.candidates?.[0]?.finishReason ?? null;
+  const finishReason = payload?.status === "incomplete" ? payload?.incomplete_details?.reason ?? "incomplete" : null;
 
   return {
     response,
@@ -324,15 +444,15 @@ app.get("/health", (_req, res) => {
     ok: true,
     service: "student-travel-center",
     mode: isProduction ? "production" : "development",
-    model: geminiModel,
+    model: openaiModel,
   });
 });
 
 app.post("/api/chat", async (req, res) => {
-  if (!geminiApiKey) {
+  if (!openaiApiKey) {
     res.status(500).json({
-      error: "Gemini API key missing",
-      message: "Configura GEMINI_API_KEY en .env.local antes de usar el chat.",
+      error: "OpenAI API key missing",
+      message: "Configura OPENAI_API_KEY en .env.local antes de usar el chat.",
     });
     return;
   }
@@ -345,33 +465,33 @@ app.post("/api/chat", async (req, res) => {
   }
 
   try {
-    let geminiRequest = await requestGeminiChat({ message, history });
+    let openaiRequest = await requestOpenAiChat({ message, history });
 
     if (
-      geminiRequest.response.ok &&
-      (!geminiRequest.structuredResponse || geminiRequest.finishReason === "MAX_TOKENS")
+      openaiRequest.response.ok &&
+      (!openaiRequest.structuredResponse || openaiRequest.finishReason)
     ) {
-      geminiRequest = await requestGeminiChat({
+      openaiRequest = await requestOpenAiChat({
         message,
         history: history.slice(-2),
         compactInstruction: true,
       });
     }
 
-    if (!geminiRequest.response.ok) {
-      res.status(geminiRequest.response.status).json({
-        error: "Gemini request failed",
-        details: geminiRequest.payload,
+    if (!openaiRequest.response.ok) {
+      res.status(openaiRequest.response.status).json({
+        error: "OpenAI request failed",
+        details: openaiRequest.payload,
       });
       return;
     }
 
-    const { text, structuredResponse } = geminiRequest;
+    const { text, structuredResponse } = openaiRequest;
 
     if (!text) {
       res.status(502).json({
-        error: "Empty Gemini response",
-        details: geminiRequest.payload,
+        error: "Empty OpenAI response",
+        details: openaiRequest.payload,
       });
       return;
     }
@@ -381,7 +501,7 @@ app.post("/api/chat", async (req, res) => {
         structuredResponse && typeof structuredResponse.reply === "string"
           ? structuredResponse.reply
           : text,
-      model: geminiModel,
+      model: openaiModel,
       chatAction: structuredResponse,
     });
   } catch (error) {
@@ -417,7 +537,7 @@ const start = async () => {
     const localUrl = `http://127.0.0.1:${port}`;
     console.log(`Server running on ${host}:${port}`);
     console.log(`Local access: ${localUrl}`);
-    console.log(`Gemini model: ${geminiModel}`);
+    console.log(`OpenAI model: ${openaiModel} (reasoning effort: ${openaiReasoningEffort})`);
   });
 };
 

@@ -341,7 +341,7 @@ const Flights = () => {
                     Vuelos encontrados por el asistente
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Estos resultados usan datos locales de apoyo y fechas futuras.
+                    Opciones de referencia generadas por el asistente para esta demo.
                   </p>
                 </div>
                 <FlightResults flights={chatFlights} onSelectFlight={handleSelectFlight} />

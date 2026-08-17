@@ -16,9 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { searchFlightsWithMinimumResults } from "@/data/mockFlights";
-import type { Flight, FlightSearchCriteria } from "@/types/flight";
-import { normalizeIsoDate } from "@/utils/dateUtils";
+import type { Airport, CabinClass, Flight, Layover } from "@/types/flight";
+import {
+  buildDateTime,
+  formatDateToIso,
+  formatTimeTo24Hour,
+  normalizeIsoDate,
+  parseDurationToMinutes,
+} from "@/utils/dateUtils";
 
 interface ChatMessage {
   id: string;
@@ -36,7 +41,7 @@ interface ChatAssistantProps {
 type ChatIntent = "flight_search" | "follow_up" | "general";
 type ChatSearchMode = "none" | "reference" | "exact";
 
-interface GeminiChatAction {
+interface ChatAction {
   reply: string;
   intent: ChatIntent;
   showFlightOptions: boolean;
@@ -47,8 +52,6 @@ interface GeminiChatAction {
     destination: string | null;
     destinationLabel: string | null;
     destinationCountry: string | null;
-    simulationDestination: string | null;
-    simulationOrigin: string | null;
     departureDate: string | null;
     returnDate: string | null;
     tripType: string;
@@ -58,44 +61,296 @@ interface GeminiChatAction {
     infants: number;
     hasUsVisa: boolean | null;
   };
+  flightOptions?: unknown;
 }
 
-interface GeminiChatApiResponse {
+interface ChatApiResponse {
   output?: string;
   model?: string;
-  chatAction?: GeminiChatAction | null;
+  chatAction?: ChatAction | null;
 }
 
-const supportedAirportCodes = new Set([
-  "BOG",
-  "MDE",
-  "CLO",
-  "CTG",
-  "BAQ",
-  "BGA",
-  "PEI",
-  "SMR",
-  "CUC",
-  "VVC",
-  "MIA",
-  "MAD",
-  "CDG",
-  "LHR",
-  "AMS",
-  "PEK",
-  "NRT",
-  "ICN",
-  "DXB",
-  "SJO",
-]);
+const MAX_CHAT_FLIGHTS = 12;
 
-const supportedCabinClasses = new Set(["economy", "premium-economy", "business", "first"]);
-const supportedTripTypes = new Set(["one-way", "round-trip"]);
+const cabinClasses = new Set<CabinClass>(["economy", "premium-economy", "business", "first"]);
+
+const bookingClassByCabin: Record<CabinClass, string> = {
+  economy: "Y",
+  "premium-economy": "W",
+  business: "J",
+  first: "F",
+};
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const isGeminiChatAction = (value: unknown): value is GeminiChatAction => {
+const isFilledString = (value: unknown): value is string =>
+  typeof value === "string" && value.trim() !== "";
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const readText = (value: unknown, fallback: string) =>
+  isFilledString(value) ? value.trim() : fallback;
+
+const readAirportCode = (value: unknown) => {
+  if (!isFilledString(value)) {
+    return null;
+  }
+
+  const normalizedCode = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalizedCode) ? normalizedCode : null;
+};
+
+const readTime = (value: unknown) => {
+  if (!isFilledString(value)) {
+    return null;
+  }
+
+  const timeMatch = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!timeMatch) {
+    return null;
+  }
+
+  const hours = Number.parseInt(timeMatch[1], 10);
+  const minutes = Number.parseInt(timeMatch[2], 10);
+  if (hours > 23 || minutes > 59) {
+    return null;
+  }
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+const readIsoDate = (value: unknown) => {
+  if (!isFilledString(value) || !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return null;
+  }
+
+  const parsedDate = new Date(`${value.trim()}T12:00:00`);
+  return Number.isNaN(parsedDate.getTime()) ? null : formatDateToIso(parsedDate);
+};
+
+const formatMinutesToDuration = (totalMinutes: number) =>
+  `${Math.floor(totalMinutes / 60)}h ${String(totalMinutes % 60).padStart(2, "0")}m`;
+
+const readAirport = (value: unknown): Airport | null => {
+  if (!isObject(value)) {
+    return null;
+  }
+
+  const code = readAirportCode(value.code);
+  if (!code) {
+    return null;
+  }
+
+  const city = readText(value.city, code);
+
+  return {
+    code,
+    name: readText(value.name, `Aeropuerto de ${city}`),
+    city,
+    country: readText(value.country, "Internacional"),
+  };
+};
+
+const readLayovers = (value: unknown): Layover[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .slice(0, 3)
+    .map((stop) => {
+      const airport = readAirport(stop);
+      if (!airport) {
+        return null;
+      }
+
+      const rawDuration = isObject(stop) ? stop.layoverDuration : null;
+      const layoverMinutes = isFilledString(rawDuration) ? parseDurationToMinutes(rawDuration) : 0;
+
+      return {
+        airport,
+        duration: formatMinutesToDuration(layoverMinutes > 0 ? layoverMinutes : 120),
+      } satisfies Layover;
+    })
+    .filter((layover): layover is Layover => layover !== null);
+};
+
+const readCabinClass = (value: unknown): CabinClass =>
+  typeof value === "string" && cabinClasses.has(value as CabinClass)
+    ? (value as CabinClass)
+    : "economy";
+
+const buildMealsForDuration = (flyingMinutes: number) => {
+  if (flyingMinutes >= 480) {
+    return ["Cena", "Desayuno"];
+  }
+
+  if (flyingMinutes >= 240) {
+    return ["Comida caliente"];
+  }
+
+  if (flyingMinutes >= 90) {
+    return ["Snack"];
+  }
+
+  return [];
+};
+
+const mapOptionToFlight = (option: unknown, index: number): Flight | null => {
+  if (!isObject(option)) {
+    return null;
+  }
+
+  const origin = readAirport(option.origin);
+  const destination = readAirport(option.destination);
+  if (!origin || !destination || origin.code === destination.code) {
+    return null;
+  }
+
+  const totalMinutes = isFilledString(option.durationTotal)
+    ? parseDurationToMinutes(option.durationTotal)
+    : 0;
+  if (totalMinutes <= 0) {
+    return null;
+  }
+
+  const publicPriceValue = isFiniteNumber(option.publicPrice) ? Math.round(option.publicPrice) : 0;
+  const agencyPriceValue = isFiniteNumber(option.agencyPrice) ? Math.round(option.agencyPrice) : 0;
+  if (publicPriceValue <= 0 || agencyPriceValue <= 0) {
+    return null;
+  }
+
+  const publicPrice = Math.max(publicPriceValue, agencyPriceValue);
+  const agencyPrice =
+    publicPriceValue === agencyPriceValue
+      ? Math.round(publicPrice * 0.85)
+      : Math.min(publicPriceValue, agencyPriceValue);
+
+  const layovers = readLayovers(option.stops);
+  const layoverMinutes = layovers.reduce(
+    (sum, layover) => sum + parseDurationToMinutes(layover.duration),
+    0
+  );
+  const flyingMinutes = totalMinutes - layoverMinutes > 0 ? totalMinutes - layoverMinutes : totalMinutes;
+
+  const departureDate = readIsoDate(option.departureDate) ?? normalizeIsoDate(undefined, 30);
+  const departureTime = readTime(option.departureTime) ?? "08:00";
+  const fallbackArrival = new Date(
+    buildDateTime(departureDate, departureTime).getTime() + totalMinutes * 60 * 1000
+  );
+  const arrivalDate = readIsoDate(option.arrivalDate) ?? formatDateToIso(fallbackArrival);
+  const arrivalTime = readTime(option.arrivalTime) ?? formatTimeTo24Hour(fallbackArrival);
+
+  const cabinClass = readCabinClass(option.cabinClass);
+  const currency = readText(option.currency, "USD").toUpperCase().slice(0, 3);
+  const airlineCode = readText(option.airlineCode, "XX").toUpperCase().slice(0, 3);
+  const airline = readText(option.airline, "Aerolinea demo");
+  const flightNumber = readText(option.flightNumber, `${airlineCode}${100 + index}`);
+  const baggageIncluded = option.baggageIncluded !== false;
+  const refundable = option.refundable === true;
+
+  const taxes = Math.round(agencyPrice * 0.18);
+  const fees = Math.round(agencyPrice * 0.04);
+  const fuelSurcharge = Math.round(taxes * 0.6);
+  const bookingFee = Math.round(fees * 0.6);
+  const advancePurchase = Math.max(
+    0,
+    Math.round(
+      (buildDateTime(departureDate, "12:00").getTime() - new Date().setHours(12, 0, 0, 0)) / 86400000
+    )
+  );
+
+  return {
+    id: `chat_${origin.code}_${destination.code}_${flightNumber}_${index}`.toLowerCase(),
+    airline,
+    airlineCode,
+    flightNumber,
+    route: {
+      origin,
+      destination,
+      stops: layovers.map((layover) => layover.airport),
+      duration: {
+        total: formatMinutesToDuration(totalMinutes),
+        flying: formatMinutesToDuration(flyingMinutes),
+      },
+      distance: Math.round((flyingMinutes / 60) * 800),
+    },
+    schedule: {
+      departure: { date: departureDate, time: departureTime, timezone: "Local" },
+      arrival: { date: arrivalDate, time: arrivalTime, timezone: "Local" },
+      layovers,
+    },
+    aircraft: readText(option.aircraft, "Airbus A320"),
+    pricing: {
+      currency,
+      publicPrice,
+      agencyPrice,
+      discount: Math.round(((publicPrice - agencyPrice) / publicPrice) * 100),
+      taxes,
+      fees,
+      total: agencyPrice + taxes + fees,
+      priceBreakdown: {
+        baseFare: agencyPrice,
+        taxes: [
+          { code: "YQ", name: "Recargo de combustible", amount: fuelSurcharge },
+          { code: "XT", name: "Tasas aeroportuarias", amount: taxes - fuelSurcharge },
+        ],
+        fees: [
+          { type: "booking", description: "Cargo por emision", amount: bookingFee },
+          { type: "service", description: "Servicio de agencia", amount: fees - bookingFee },
+        ],
+      },
+    },
+    availability: {
+      seats:
+        isFiniteNumber(option.seatsAvailable) && option.seatsAvailable >= 1
+          ? Math.min(40, Math.round(option.seatsAvailable))
+          : 9,
+      cabinClass,
+      bookingClass: bookingClassByCabin[cabinClass],
+      refundable,
+      changeable: true,
+      lastUpdate: new Date().toISOString(),
+    },
+    services: {
+      meals: buildMealsForDuration(flyingMinutes),
+      entertainment: flyingMinutes >= 180,
+      wifi: flyingMinutes >= 180,
+      powerOutlets: flyingMinutes >= 120,
+      extraLegroom: cabinClass !== "economy",
+    },
+    baggage: {
+      carry: { included: true, weight: "10kg", dimensions: "55x40x25cm" },
+      checked: baggageIncluded
+        ? { included: true, weight: cabinClass === "economy" ? "23kg" : "32kg" }
+        : { included: false, weight: "0kg", additionalFee: 60 },
+    },
+    restrictions: {
+      minStay: 3,
+      maxStay: 365,
+      advancePurchase,
+      cancellationPolicy: refundable
+        ? "Reembolsable con penalidad"
+        : "No reembolsable despues de emitir",
+      changePolicy: `Cambios: ${currency} ${refundable ? 100 : 200} + diferencia tarifaria`,
+    },
+  };
+};
+
+const buildFlightsFromChatAction = (action: ChatAction | null | undefined): Flight[] => {
+  if (!action?.showFlightOptions || !Array.isArray(action.flightOptions)) {
+    return [];
+  }
+
+  return action.flightOptions
+    .slice(0, MAX_CHAT_FLIGHTS)
+    .map((option, index) => mapOptionToFlight(option, index))
+    .filter((flight): flight is Flight => flight !== null);
+};
+
+const isChatAction = (value: unknown): value is ChatAction => {
   if (!isObject(value) || !isObject(value.search)) {
     return false;
   }
@@ -116,131 +371,10 @@ const parseChatActionFromOutput = (output?: string) => {
 
   try {
     const parsedOutput = JSON.parse(output);
-    return isGeminiChatAction(parsedOutput) ? parsedOutput : null;
+    return isChatAction(parsedOutput) ? parsedOutput : null;
   } catch {
     return null;
   }
-};
-
-const getSupportedAirportCode = (value: unknown) => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalizedCode = value.trim().toUpperCase();
-  return supportedAirportCodes.has(normalizedCode) ? normalizedCode : null;
-};
-
-const normalizeTripType = (value: unknown): FlightSearchCriteria["tripType"] =>
-  typeof value === "string" && supportedTripTypes.has(value)
-    ? (value as FlightSearchCriteria["tripType"])
-    : "one-way";
-
-const normalizeCabinClass = (value: unknown): FlightSearchCriteria["cabinClass"] =>
-  typeof value === "string" && supportedCabinClasses.has(value)
-    ? (value as FlightSearchCriteria["cabinClass"])
-    : "economy";
-
-const normalizePassengerCount = (value: unknown, fallback: number) =>
-  typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
-
-const buildSearchCriteriaFromAction = (
-  action: GeminiChatAction | null | undefined
-): FlightSearchCriteria | null => {
-  if (!action?.showFlightOptions || !isObject(action.search)) {
-    return null;
-  }
-
-  const destination =
-    getSupportedAirportCode(action.search.simulationDestination) ||
-    getSupportedAirportCode(action.search.destination);
-  if (!destination) {
-    return null;
-  }
-
-  const tripType = normalizeTripType(action.search.tripType);
-  const departureDate = normalizeIsoDate(
-    typeof action.search.departureDate === "string" ? action.search.departureDate : undefined,
-    21
-  );
-  const returnDate =
-    tripType === "round-trip"
-      ? normalizeIsoDate(
-          typeof action.search.returnDate === "string" ? action.search.returnDate : undefined,
-          30
-        )
-      : undefined;
-
-  return {
-    origin:
-      getSupportedAirportCode(action.search.simulationOrigin) ||
-      getSupportedAirportCode(action.search.origin) ||
-      "BOG",
-    destination,
-    departureDate,
-    returnDate,
-    passengers: {
-      adults: Math.max(1, normalizePassengerCount(action.search.adults, 1)),
-      children: normalizePassengerCount(action.search.children, 0),
-      infants: normalizePassengerCount(action.search.infants, 0),
-    },
-    cabinClass: normalizeCabinClass(action.search.cabinClass),
-    tripType,
-    flexibility: "exact",
-    hasUsVisa: typeof action.search.hasUsVisa === "boolean" ? action.search.hasUsVisa : true,
-  };
-};
-
-const getDemoDestinationCode = (action: GeminiChatAction) => {
-  if (typeof action.search.destination === "string" && /^[A-Za-z]{3}$/.test(action.search.destination)) {
-    return action.search.destination.toUpperCase();
-  }
-
-  const fallbackCode =
-    getSupportedAirportCode(action.search.destination) ||
-    getSupportedAirportCode(action.search.simulationDestination);
-
-  return fallbackCode || "DEM";
-};
-
-const applyDemoDestinationPresentation = (
-  flights: Flight[],
-  action: GeminiChatAction | null | undefined
-) => {
-  if (!action || !isObject(action.search)) {
-    return flights;
-  }
-
-  const requestedLabel =
-    typeof action.search.destinationLabel === "string" && action.search.destinationLabel.trim() !== ""
-      ? action.search.destinationLabel.trim()
-      : null;
-  const requestedCountry =
-    typeof action.search.destinationCountry === "string" && action.search.destinationCountry.trim() !== ""
-      ? action.search.destinationCountry.trim()
-      : null;
-  const supportedDestination = getSupportedAirportCode(action.search.destination);
-
-  if (!requestedLabel || supportedDestination) {
-    return flights;
-  }
-
-  const destinationCode = getDemoDestinationCode(action);
-
-  return flights.map((flight, index) => ({
-    ...flight,
-    id: `${flight.id}_demo_${destinationCode}_${index}`,
-    route: {
-      ...flight.route,
-      destination: {
-        ...flight.route.destination,
-        code: destinationCode,
-        city: requestedLabel,
-        name: `${requestedLabel} - Referencia demo`,
-        country: requestedCountry || flight.route.destination.country,
-      },
-    },
-  }));
 };
 
 const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps) => {
@@ -262,7 +396,7 @@ const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendToGemini = async (message: string): Promise<GeminiChatApiResponse> => {
+  const sendToAssistant = async (message: string): Promise<ChatApiResponse> => {
     try {
       const history = messages
         .filter((entry) => entry.type === "user" || entry.type === "assistant")
@@ -287,7 +421,7 @@ const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = (await response.json()) as GeminiChatApiResponse;
+      const data = (await response.json()) as ChatApiResponse;
       const recoveredChatAction = data.chatAction ?? parseChatActionFromOutput(data.output);
 
       if (recoveredChatAction) {
@@ -303,14 +437,14 @@ const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps
       }
 
       return {
-        output: "Recibi tu mensaje, pero Gemini devolvio un formato inesperado.",
+        output: "Recibi tu mensaje, pero el asistente devolvio un formato inesperado.",
         chatAction: null,
       };
     } catch (error) {
-      console.error("Gemini error:", error);
+      console.error("Chat assistant error:", error);
       setIsConnectedToAI(false);
       return {
-        output: "Hay un problema temporal con Gemini. Intenta nuevamente en unos segundos.",
+        output: "Hay un problema temporal con el asistente. Intenta nuevamente en unos segundos.",
         chatAction: null,
       };
     }
@@ -319,25 +453,14 @@ const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps
   const processUserMessage = async (message: string): Promise<ChatMessage> => {
     setIsConnectedToAI(true);
 
-    const geminiResponse = await sendToGemini(message);
+    const assistantResponse = await sendToAssistant(message);
     const response =
-      typeof geminiResponse.output === "string" && geminiResponse.output.trim() !== ""
-        ? geminiResponse.output
+      typeof assistantResponse.output === "string" && assistantResponse.output.trim() !== ""
+        ? assistantResponse.output
         : "Cuentame origen, destino y fecha estimada, y te ayudo con opciones.";
-    const searchCriteria = buildSearchCriteriaFromAction(geminiResponse.chatAction);
-    const detectedFlights =
-      searchCriteria && geminiResponse.chatAction?.showFlightOptions
-        ? applyDemoDestinationPresentation(
-            searchFlightsWithMinimumResults(searchCriteria, 20),
-            geminiResponse.chatAction
-          )
-        : [];
+    const detectedFlights = buildFlightsFromChatAction(assistantResponse.chatAction);
 
-    if (geminiResponse.chatAction?.showFlightOptions) {
-      onFlightsDetected?.(detectedFlights);
-    } else {
-      onFlightsDetected?.([]);
-    }
+    onFlightsDetected?.(detectedFlights);
 
     return {
       id: Date.now().toString(),
@@ -396,7 +519,7 @@ const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps
           Asistente de vuelos
           <Badge variant={isConnectedToAI ? "secondary" : "destructive"} className="ml-auto">
             <Bot className="mr-1 h-3 w-3" />
-            {isConnectedToAI ? "Gemini conectada" : "Modo local"}
+            {isConnectedToAI ? "IA conectada" : "Modo local"}
           </Badge>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
