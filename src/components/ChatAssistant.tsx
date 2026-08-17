@@ -25,12 +25,19 @@ import {
   parseDurationToMinutes,
 } from "@/utils/dateUtils";
 
+type ChatFlightHighlight = "cheapest" | "fastest" | "most_comfortable" | "none";
+
+type ChatFlight = Flight & {
+  highlight: ChatFlightHighlight;
+  highlightReason: string;
+};
+
 interface ChatMessage {
   id: string;
   type: "user" | "assistant";
   content: string;
   timestamp: Date;
-  flights?: Flight[];
+  flights?: ChatFlight[];
 }
 
 interface ChatAssistantProps {
@@ -71,6 +78,20 @@ interface ChatApiResponse {
 }
 
 const MAX_CHAT_FLIGHTS = 12;
+
+const highlightBadgeConfig: Record<ChatFlightHighlight, { label: string; className: string } | null> = {
+  cheapest: { label: "Mas economica", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  fastest: { label: "Mas rapida", className: "border-sky-200 bg-sky-50 text-sky-700" },
+  most_comfortable: { label: "Mas comoda", className: "border-violet-200 bg-violet-50 text-violet-700" },
+  none: null,
+};
+
+const sortForDisplay = (flights: ChatFlight[]): ChatFlight[] =>
+  [...flights].sort((left, right) => {
+    const leftHighlighted = left.highlight !== "none" ? 0 : 1;
+    const rightHighlighted = right.highlight !== "none" ? 0 : 1;
+    return leftHighlighted - rightHighlighted;
+  });
 
 const cabinClasses = new Set<CabinClass>(["economy", "premium-economy", "business", "first"]);
 
@@ -182,6 +203,18 @@ const readCabinClass = (value: unknown): CabinClass =>
     ? (value as CabinClass)
     : "economy";
 
+const chatFlightHighlights = new Set<ChatFlightHighlight>([
+  "cheapest",
+  "fastest",
+  "most_comfortable",
+  "none",
+]);
+
+const readHighlight = (value: unknown): ChatFlightHighlight =>
+  typeof value === "string" && chatFlightHighlights.has(value as ChatFlightHighlight)
+    ? (value as ChatFlightHighlight)
+    : "none";
+
 const buildMealsForDuration = (flyingMinutes: number) => {
   if (flyingMinutes >= 480) {
     return ["Cena", "Desayuno"];
@@ -198,7 +231,7 @@ const buildMealsForDuration = (flyingMinutes: number) => {
   return [];
 };
 
-const mapOptionToFlight = (option: unknown, index: number): Flight | null => {
+const mapOptionToFlight = (option: unknown, index: number): ChatFlight | null => {
   if (!isObject(option)) {
     return null;
   }
@@ -336,18 +369,35 @@ const mapOptionToFlight = (option: unknown, index: number): Flight | null => {
         : "No reembolsable despues de emitir",
       changePolicy: `Cambios: ${currency} ${refundable ? 100 : 200} + diferencia tarifaria`,
     },
+    highlight: readHighlight(option.highlight),
+    highlightReason: readText(option.highlightReason, ""),
   };
 };
 
-const buildFlightsFromChatAction = (action: ChatAction | null | undefined): Flight[] => {
+const dedupeHighlights = (flights: ChatFlight[]): ChatFlight[] => {
+  const seenHighlights = new Set<ChatFlightHighlight>();
+
+  return flights.map((flight) => {
+    if (flight.highlight === "none" || seenHighlights.has(flight.highlight)) {
+      return flight.highlight === "none" ? flight : { ...flight, highlight: "none", highlightReason: "" };
+    }
+
+    seenHighlights.add(flight.highlight);
+    return flight;
+  });
+};
+
+const buildFlightsFromChatAction = (action: ChatAction | null | undefined): ChatFlight[] => {
   if (!action?.showFlightOptions || !Array.isArray(action.flightOptions)) {
     return [];
   }
 
-  return action.flightOptions
+  const flights = action.flightOptions
     .slice(0, MAX_CHAT_FLIGHTS)
     .map((option, index) => mapOptionToFlight(option, index))
-    .filter((flight): flight is Flight => flight !== null);
+    .filter((flight): flight is ChatFlight => flight !== null);
+
+  return dedupeHighlights(flights);
 };
 
 const isChatAction = (value: unknown): value is ChatAction => {
@@ -552,33 +602,56 @@ const ChatAssistant = ({ onFlightsDetected, className = "" }: ChatAssistantProps
 
                   {(message.flights ?? []).length > 0 && (
                     <div className="mt-3 space-y-2">
-                      {message.flights?.slice(0, 4).map((flight) => (
-                        <div key={flight.id} className="rounded-md border bg-background p-3">
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Plane className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-medium">
-                                {flight.flightNumber} - {flight.airline}
-                              </span>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                              <DollarSign className="mr-1 h-3 w-3" />
-                              ${flight.pricing.agencyPrice.toLocaleString()}
-                            </Badge>
-                          </div>
+                      {sortForDisplay(message.flights ?? [])
+                        .slice(0, 4)
+                        .map((flight) => {
+                          const highlightBadge = highlightBadgeConfig[flight.highlight];
 
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {flight.route.origin.code} - {flight.route.destination.code}
+                          return (
+                            <div key={flight.id} className="rounded-md border bg-background p-3">
+                              {highlightBadge && (
+                                <Badge
+                                  variant="outline"
+                                  className={`mb-2 text-[11px] ${highlightBadge.className}`}
+                                >
+                                  {highlightBadge.label}
+                                </Badge>
+                              )}
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Plane className="h-4 w-4 text-primary" />
+                                  <span className="text-sm font-medium">
+                                    {flight.flightNumber} - {flight.airline}
+                                  </span>
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  <DollarSign className="mr-1 h-3 w-3" />
+                                  ${flight.pricing.agencyPrice.toLocaleString()}
+                                </Badge>
+                              </div>
+
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {flight.route.origin.code} - {flight.route.destination.code}
+                                  {flight.route.stops.length > 0
+                                    ? ` (${flight.route.stops.length} escala${flight.route.stops.length > 1 ? "s" : ""})`
+                                    : " (directo)"}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {flight.schedule.departure.date}
+                                </div>
+                              </div>
+
+                              {flight.highlightReason && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  {flight.highlightReason}
+                                </p>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {flight.schedule.departure.date}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          );
+                        })}
                       {message.flights && message.flights.length > 4 && (
                         <p className="text-xs text-muted-foreground">
                           +{message.flights.length - 4} opciones mas en la seccion de resultados.
